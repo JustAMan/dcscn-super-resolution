@@ -19,6 +19,22 @@ INPUT_IMAGE_DIR = "input"
 INTERPOLATED_IMAGE_DIR = "interpolated"
 TRUE_IMAGE_DIR = "true"
 
+INPUT_SUFFIX = "-input"
+TRUE_SUFFIX = "-true"
+
+def make_input_image(file_path, true_image, channels=1, scale=1,
+        convert_ycbcr=True, resampling_method='bicubic', print_console=True):
+    fname, fext = os.path.splitext(file_path)
+    input_image = None
+    if fname.lower().endswith(TRUE_SUFFIX):
+        target = fname[:-len(TRUE_SUFFIX)] + INPUT_SUFFIX + fext
+        if os.path.exists(target):
+            input_image = util.set_image_alignment(util.load_image(target, print_console=print_console), scale)
+            if channels == 1 and input_image.shape[2] == 3 and convert_ycbcr:
+                input_image = util.convert_rgb_to_y(input_image)
+    if input_image is None and true_image is not None:
+        input_image = util.resize_image_by_pil(true_image, 1.0 / scale, resampling_method=resampling_method)
+    return input_image
 
 def build_image_set(file_path, channels=1, scale=1, convert_ycbcr=True, resampling_method="bicubic",
                     print_console=True):
@@ -27,7 +43,7 @@ def build_image_set(file_path, channels=1, scale=1, convert_ycbcr=True, resampli
     if channels == 1 and true_image.shape[2] == 3 and convert_ycbcr:
         true_image = util.convert_rgb_to_y(true_image)
 
-    input_image = util.resize_image_by_pil(true_image, 1.0 / scale, resampling_method=resampling_method)
+    input_image = make_input_image(file_path, true_image, channels, scale, convert_ycbcr, resampling_method, print_console)
     input_interpolated_image = util.resize_image_by_pil(input_image, scale, resampling_method=resampling_method)
 
     return input_image, input_interpolated_image, true_image
@@ -353,3 +369,58 @@ class DynamicDataSets:
         image = build_input_image(image, channels=self.channels, convert_ycbcr=True)
 
         return image
+
+class DynamicDataSetsWithInput(DynamicDataSets):
+    def load_batch_image(self, max_value):
+        image = None
+        file_path = None
+        while image is None:
+            file_path = self.filenames[self.get_next_image_no()]
+            image, x, y = self.load_random_patch(file_path)
+
+        input_image = make_input_image(file_path, None, scale=self.scale,
+            convert_ycbcr=True, print_console=False)
+        if input_image is None:
+            input_image = util.resize_image_by_pil(image, 1 / self.scale)
+        else:
+            x, y = x // self.scale, y // self.scale
+            input_image = input_image[y:y + self.batch_image_size, x:x + self.batch_image_size, :]
+        if random.randrange(2) == 0:
+            image = np.fliplr(image)
+            input_image = np.fliplr(input_image)
+        input_bicubic_image = util.resize_image_by_pil(input_image, self.scale)
+
+        if max_value != 255:
+            scale = max_value / 255.0
+            input_image = np.multiply(input_image, scale)
+            input_bicubic_image = np.multiply(input_bicubic_image, scale)
+            image = np.multiply(image, scale)
+
+        return input_image, input_bicubic_image, image
+
+    def load_random_patch(self, filename):
+
+        image = util.load_image(filename, print_console=False)
+        height, width = image.shape[0:2]
+
+        load_batch_size = self.batch_image_size * self.scale
+
+        if height < load_batch_size or width < load_batch_size:
+            print("Error: %s should have more than %d x %d size." % (filename, load_batch_size, load_batch_size))
+            return None, None, None
+
+        if height == load_batch_size:
+            y = 0
+        else:
+            y = random.randrange(height - load_batch_size)
+
+        if width == load_batch_size:
+            x = 0
+        else:
+            x = random.randrange(width - load_batch_size)
+        x -= x % self.scale
+        y -= y % self.scale
+        image = image[y:y + load_batch_size, x:x + load_batch_size, :]
+        image = build_input_image(image, channels=self.channels, convert_ycbcr=True)
+
+        return image, x, y

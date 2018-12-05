@@ -126,3 +126,6 @@ data/bsd200_y/
 testimages/
 
 test/
+data/futurama*
+output-worsened/s01e01-full-010.png
+output*

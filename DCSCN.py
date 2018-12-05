@@ -142,7 +142,7 @@ class SuperResolution(tf_graph.TensorflowGraph):
         Opens image directory as a datasets. Images will be loaded when build_input_batch() is called.
         """
 
-        self.train = loader.DynamicDataSets(self.scale, batch_image_size, channels=self.channels,
+        self.train = loader.DynamicDataSetsWithInput(self.scale, batch_image_size, channels=self.channels,
                                             resampling_method=self.resampling_method)
         self.train.set_data_dir(data_dir)
 
