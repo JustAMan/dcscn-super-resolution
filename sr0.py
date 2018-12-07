@@ -30,6 +30,8 @@ import os
 import time
 import glob
 
+from scipy.ndimage.filters import gaussian_filter
+
 import tensorflow as tf
 
 import DCSCN
@@ -41,21 +43,29 @@ args.flags.DEFINE_string("file_glob", "", "Target filenames pattern")
 FLAGS = args.get()
 
 class Upscaler(DCSCN.SuperResolution):
-    def do_for_file(self, file_path, output_folder="output"):
+    def do_for_file(self, file_path, output_folder="output", blur=None):
         org_image = util.load_image(file_path)
         assert len(org_image.shape) >= 3 and org_image.shape[2] == 3 and self.channels == 1
 
         input_y_image = util.convert_rgb_to_y(org_image)
+        if blur is not None:
+            input_y_image = gaussian_filter(input_y_image, sigma=blur)
         output_y_image = self.do(input_y_image)
         scaled_ycbcr_image = util.convert_rgb_to_ycbcr(
             util.resize_image_by_pil(org_image, self.scale, self.resampling_method))
         image = util.convert_y_and_cbcr_to_rgb(output_y_image, scaled_ycbcr_image[:, :, 1:3])
 
-        util.save_image(os.path.join(output_folder, os.path.basename(file_path)), image)
+        target_path = os.path.basename(file_path)
+        if blur is not None:
+            head, ext = os.path.splitext(target_path)
+            target_path = '%s-blur-%.2f%s' % (head, blur, ext)
+        util.save_image(os.path.join(output_folder, target_path), image)
 
 def upscale(model, fname, output):
     start = time.time()
     model.do_for_file(fname, output)
+    #for blur in (0.2, 0.4, 0.6, 0.8):
+    #    model.do_for_file(fname, output, blur=blur)
     print('upscaling took: %.3f seconds' % (time.time() - start))
 
 def main(_):

@@ -12,6 +12,7 @@ import random
 
 import numpy as np
 from scipy import misc
+from scipy.ndimage.filters import gaussian_filter
 
 from helper import utilty as util
 
@@ -28,10 +29,17 @@ def make_input_image(file_path, true_image, channels=1, scale=1,
     input_image = None
     if fname.lower().endswith(TRUE_SUFFIX):
         target = fname[:-len(TRUE_SUFFIX)] + INPUT_SUFFIX + fext
+        head, tail = os.path.split(target)
+        target = os.path.join(head, 'input', tail)
         if os.path.exists(target):
+            #print('taking input from "%s"' % target)
             input_image = util.set_image_alignment(util.load_image(target, print_console=print_console), scale)
             if channels == 1 and input_image.shape[2] == 3 and convert_ycbcr:
                 input_image = util.convert_rgb_to_y(input_image)
+                blur_radius = random.randrange(40, 150) / 100.
+                #print('blurring "%s" with radius %.2f' % (os.path.basename(file_path), blur_radius))
+                input_image = gaussian_filter(input_image, sigma=blur_radius)
+                
     if input_image is None and true_image is not None:
         input_image = util.resize_image_by_pil(true_image, 1.0 / scale, resampling_method=resampling_method)
     return input_image
