@@ -12,7 +12,7 @@ import random
 
 import numpy as np
 from scipy import misc
-from scipy.ndimage.filters import gaussian_filter
+from scipy.ndimage.filters import gaussian_filter, median_filter, gaussian_filter1d
 
 from helper import utilty as util
 
@@ -36,9 +36,10 @@ def make_input_image(file_path, true_image, channels=1, scale=1,
             input_image = util.set_image_alignment(util.load_image(target, print_console=print_console), scale)
             if channels == 1 and input_image.shape[2] == 3 and convert_ycbcr:
                 input_image = util.convert_rgb_to_y(input_image)
-                blur_radius = random.randrange(40, 150) / 100.
+                hblur_radius = random.randrange(30, 70) / 100. # avg. = 0.5
+                vblur_radius = random.randrange(125, 175) / 100. # avg. = 1.5
                 #print('blurring "%s" with radius %.2f' % (os.path.basename(file_path), blur_radius))
-                input_image = gaussian_filter(input_image, sigma=blur_radius)
+                input_image = gaussian_filter1d(gaussian_filter1d(input_image, sigma=vblur_radius, axis=0), sigma=hblur_radius, axis=1)
                 
     if input_image is None and true_image is not None:
         input_image = util.resize_image_by_pil(true_image, 1.0 / scale, resampling_method=resampling_method)
