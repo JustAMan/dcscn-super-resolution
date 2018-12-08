@@ -9,6 +9,7 @@ import configparser
 import logging
 import os
 import random
+import tempfile
 
 import numpy as np
 from scipy import misc
@@ -35,11 +36,15 @@ def make_input_image(file_path, true_image, channels=1, scale=1,
             #print('taking input from "%s"' % target)
             input_image = util.set_image_alignment(util.load_image(target, print_console=print_console), scale)
             if channels == 1 and input_image.shape[2] == 3 and convert_ycbcr:
-                input_image = util.convert_rgb_to_y(input_image)
                 hblur_radius = random.randrange(30, 70) / 100. # avg. = 0.5
                 vblur_radius = random.randrange(125, 175) / 100. # avg. = 1.5
                 #print('blurring "%s" with radius %.2f' % (os.path.basename(file_path), blur_radius))
                 input_image = gaussian_filter1d(gaussian_filter1d(input_image, sigma=vblur_radius, axis=0), sigma=hblur_radius, axis=1)
+                tmpname = tempfile.mktemp(suffix='.jpg')
+                util.save_image(tmpname, input_image, print_console=False)
+                input_image = util.load_image(tmpname, print_console=False)
+                os.unlink(tmpname)
+                input_image = util.convert_rgb_to_y(input_image)
                 
     if input_image is None and true_image is not None:
         input_image = util.resize_image_by_pil(true_image, 1.0 / scale, resampling_method=resampling_method)
@@ -433,3 +438,4 @@ class DynamicDataSetsWithInput(DynamicDataSets):
         image = build_input_image(image, channels=self.channels, convert_ycbcr=True)
 
         return image, x, y
+
