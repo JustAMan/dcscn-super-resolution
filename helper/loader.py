@@ -36,14 +36,37 @@ def make_input_image(file_path, true_image, channels=1, scale=1,
             #print('taking input from "%s"' % target)
             input_image = util.set_image_alignment(util.load_image(target, print_console=print_console), scale)
             if channels == 1 and input_image.shape[2] == 3 and convert_ycbcr:
-                hblur_radius = random.randrange(30, 70) / 100. # avg. = 0.5
-                vblur_radius = random.randrange(125, 175) / 100. # avg. = 1.5
+                # Preparing the source image for training
+
+                #flip = random.randrange(0, 4)
+                #rot90 = random.randrange(0, 2)
+
+                hblur_radius = random.randrange(0, 50) / 100.
+                vblur_radius = random.randrange(0, 75) / 100.
+                qua = random.randrange(60, 120)
+
+                # if flip == 1 or flip == 3:
+                #     input_image = np.flipud(input_image)
+                #     if true_image is not None:
+                #         true_image = np.flipud(true_image)
+                # if flip == 2 or flip == 3:
+                #     input_image = np.fliplr(input_image)
+                #     if true_image is not None:
+                #         true_image = np.fliplr(true_image)
+
+                #if rot90 == 1:
+                #    input_image = np.rot90(input_image)
+
                 #print('blurring "%s" with radius %.2f' % (os.path.basename(file_path), blur_radius))
-                input_image = gaussian_filter1d(gaussian_filter1d(input_image, sigma=vblur_radius, axis=0), sigma=hblur_radius, axis=1)
-                tmpname = tempfile.mktemp(suffix='.jpg')
-                util.save_image(tmpname, input_image, print_console=False)
-                input_image = util.load_image(tmpname, print_console=False)
-                os.unlink(tmpname)
+                if vblur_radius > 0:
+                    input_image = gaussian_filter1d(input_image, sigma=vblur_radius, axis=0)
+                if hblur_radius > 0:
+                    input_image = gaussian_filter1d(input_image, sigma=hblur_radius, axis=1)
+                if qua < 99:
+                    tmpname = tempfile.mktemp(suffix='.jpg')
+                    util.save_image(tmpname, input_image, qua, print_console=False)
+                    input_image = util.load_image(tmpname, print_console=False)
+                    os.unlink(tmpname)
                 input_image = util.convert_rgb_to_y(input_image)
                 
     if input_image is None and true_image is not None:
@@ -399,9 +422,20 @@ class DynamicDataSetsWithInput(DynamicDataSets):
         else:
             x, y = x // self.scale, y // self.scale
             input_image = input_image[y:y + self.batch_image_size, x:x + self.batch_image_size, :]
-        if random.randrange(2) == 0:
-            image = np.fliplr(image)
+
+        flip = random.randrange(0, 4)
+        if flip == 1 or flip == 3:
+            input_image = np.flipud(input_image)
+            image = np.flipud(image)
+        if flip == 2 or flip == 3:
             input_image = np.fliplr(input_image)
+            image = np.fliplr(image)
+
+        rot90 = random.randrange(0, 2)
+        if rot90 == 1:
+            input_image = np.rot90(input_image)
+            image = np.rot90(image)
+
         input_bicubic_image = util.resize_image_by_pil(input_image, self.scale)
 
         if max_value != 255:

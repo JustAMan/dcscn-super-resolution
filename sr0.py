@@ -42,6 +42,7 @@ args.flags.DEFINE_string("file", "image.jpg", "Target filename")
 args.flags.DEFINE_string("file_glob", "", "Target filenames pattern")
 FLAGS = args.get()
 
+
 class Upscaler(DCSCN.SuperResolution):
     def do_for_file(self, file_path, output_folder="output", blur=None):
         org_image = util.load_image(file_path)
@@ -60,6 +61,7 @@ class Upscaler(DCSCN.SuperResolution):
             head, ext = os.path.splitext(target_path)
             target_path = '%s-blur-%.2f%s' % (head, blur, ext)
         util.save_image(os.path.join(output_folder, target_path), image)
+
 
 def upscale(model, fname, output):
     start = time.time()
@@ -84,6 +86,7 @@ def main(_):
         lst = [FLAGS.file]
     for fname in lst:
         upscale(model, fname, FLAGS.output_dir)
+
 
 if __name__ == '__main__':
     tf.app.run()
