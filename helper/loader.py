@@ -37,40 +37,27 @@ def make_input_image(file_path, true_image, channels=1, scale=1,
             input_image = util.set_image_alignment(util.load_image(target, print_console=print_console), scale)
             if channels == 1 and input_image.shape[2] == 3 and convert_ycbcr:
                 # Preparing the source image for training
-
-                #flip = random.randrange(0, 4)
-                #rot90 = random.randrange(0, 2)
-
-                hblur_radius = random.randrange(0, 50) / 100.
-                vblur_radius = random.randrange(0, 75) / 100.
-                qua = random.randrange(60, 120)
-
-                # if flip == 1 or flip == 3:
-                #     input_image = np.flipud(input_image)
-                #     if true_image is not None:
-                #         true_image = np.flipud(true_image)
-                # if flip == 2 or flip == 3:
-                #     input_image = np.fliplr(input_image)
-                #     if true_image is not None:
-                #         true_image = np.fliplr(true_image)
-
-                #if rot90 == 1:
-                #    input_image = np.rot90(input_image)
-
-                #print('blurring "%s" with radius %.2f' % (os.path.basename(file_path), blur_radius))
-                if vblur_radius > 0:
-                    input_image = gaussian_filter1d(input_image, sigma=vblur_radius, axis=0)
-                if hblur_radius > 0:
-                    input_image = gaussian_filter1d(input_image, sigma=hblur_radius, axis=1)
-                if qua < 99:
-                    tmpname = tempfile.mktemp(suffix='.jpg')
-                    util.save_image(tmpname, input_image, qua, print_console=False)
-                    input_image = util.load_image(tmpname, print_console=False)
-                    os.unlink(tmpname)
                 input_image = util.convert_rgb_to_y(input_image)
                 
     if input_image is None and true_image is not None:
         input_image = util.resize_image_by_pil(true_image, 1.0 / scale, resampling_method=resampling_method)
+        input_image = util.convert_rgb_to_y(input_image)
+
+    hblur_radius = random.randrange(0, 70) / 100.
+    vblur_radius = random.randrange(0, 100) / 100.
+    qua = random.randrange(40, 110)
+
+    # print('blurring "%s" with radius %.2f' % (os.path.basename(file_path), blur_radius))
+    if vblur_radius > 0:
+        input_image = gaussian_filter1d(input_image, sigma=vblur_radius, axis=0)
+    if hblur_radius > 0:
+        input_image = gaussian_filter1d(input_image, sigma=hblur_radius, axis=1)
+    if qua < 99:
+        tmpname = tempfile.mktemp(suffix='.jpg')
+        util.save_image(tmpname, input_image, qua, print_console=False)
+        input_image = util.load_image(tmpname, print_console=False)
+        os.unlink(tmpname)
+
     return input_image
 
 def build_image_set(file_path, channels=1, scale=1, convert_ycbcr=True, resampling_method="bicubic",
@@ -415,13 +402,13 @@ class DynamicDataSetsWithInput(DynamicDataSets):
             file_path = self.filenames[self.get_next_image_no()]
             image, x, y = self.load_random_patch(file_path)
 
-        input_image = make_input_image(file_path, None, scale=self.scale,
+        input_image = make_input_image(file_path, image, scale=self.scale,
             convert_ycbcr=True, print_console=False)
-        if input_image is None:
-            input_image = util.resize_image_by_pil(image, 1 / self.scale)
-        else:
-            x, y = x // self.scale, y // self.scale
-            input_image = input_image[y:y + self.batch_image_size, x:x + self.batch_image_size, :]
+        #if input_image is None:
+        #    input_image = util.resize_image_by_pil(image, 1 / self.scale)
+        #else:
+        #    x, y = x // self.scale, y // self.scale
+        #    input_image = input_image[y:y + self.batch_image_size, x:x + self.batch_image_size, :]
 
         flip = random.randrange(0, 4)
         if flip == 1 or flip == 3:
