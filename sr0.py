@@ -132,6 +132,7 @@ def main(_):
         lst = glob.glob(FLAGS.file_glob)
     if not lst:
         lst = [FLAGS.file]
+    os.makedirs(FLAGS.output_dir, exist_ok=True)
     for fname in lst:
         upscale(model, fname, FLAGS.output_dir)
 
