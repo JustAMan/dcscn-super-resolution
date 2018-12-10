@@ -31,10 +31,12 @@ import time
 import glob
 
 from scipy.ndimage.filters import gaussian_filter
+import numpy as np
 
 import tensorflow as tf
 
 import DCSCN
+import cv2
 from helper import args
 from helper import utilty as util
 
@@ -42,33 +44,79 @@ args.flags.DEFINE_string("file", "image.jpg", "Target filename")
 args.flags.DEFINE_string("file_glob", "", "Target filenames pattern")
 FLAGS = args.get()
 
+def cv_convert_rgb_to_y(image):
+    ycbcr = cv2.cvtColor(image, cv2.COLOR_RGB2YCR_CB)
+    only_Cb, only_Cr, only_y = cv2.split(ycbcr)
+    return only_y
+
+
+def do_cv(src, dest):
+        inp = cv2.imread(src)
+
+        resized = cv2.resize(inp, (inp.shape[1] * 2, inp.shape[0] * 2))
+
+        ycbcr = cv2.cvtColor(resized, cv2.COLOR_RGB2YCR_CB)
+        only_Cb, only_Cr, only_y = cv2.split(ycbcr)
+
+        scaled_ycbcr_image = cv2.cvtColor(resized, cv2.COLOR_RGB2YCR_CB)
+
+        new_Cb, new_Cr, new_y = cv2.split(scaled_ycbcr_image)
+        image = cv2.merge((new_Cb, new_Cr, only_y ))
+        image = cv2.cvtColor(image, cv2.COLOR_YCR_CB2RGB)
+
+        cv2.imwrite(dest, image)
+
 
 class Upscaler(DCSCN.SuperResolution):
-    def do_for_file(self, file_path, output_folder="output", blur=None):
-        org_image = util.load_image(file_path)
+    def do_for_file(self, file_path, output_folder="output"):
+        org_image = cv2.imread(file_path)                   #org_image = util.load_image(file_path)
         assert len(org_image.shape) >= 3 and org_image.shape[2] == 3 and self.channels == 1
 
-        input_y_image = util.convert_rgb_to_y(org_image)
-        if blur is not None:
-            input_y_image = gaussian_filter(input_y_image, sigma=blur)
-        output_y_image = self.do(input_y_image)
-        scaled_ycbcr_image = util.convert_rgb_to_ycbcr(
-            util.resize_image_by_pil(org_image, self.scale, self.resampling_method))
-        image = util.convert_y_and_cbcr_to_rgb(output_y_image, scaled_ycbcr_image[:, :, 1:3])
+        input_ycbcr_image = cv2.cvtColor(org_image, cv2.COLOR_RGB2YCR_CB)
+        only_Cb, only_Cr, input_y_image = cv2.split(input_ycbcr_image)
+
+        big_blurry_input_image = cv2.resize(org_image, (org_image.shape[1] * self.scale, org_image.shape[0] * self.scale))
+        big_blurry_input_ycbcr_image = cv2.cvtColor(big_blurry_input_image, cv2.COLOR_RGB2YCR_CB)
+        bbi_only_Cb, bbi_only_Cr, bbi_input_y_image = cv2.split(big_blurry_input_ycbcr_image)
+
+        output_y_image = self.do(input_y_image, bbi_input_y_image)
+
+        output_ycbcr_image = cv2.merge((bbi_only_Cb, bbi_only_Cr, output_y_image))
+        output_image = cv2.cvtColor(output_ycbcr_image, cv2.COLOR_YCR_CB2RGB)
 
         target_path = os.path.basename(file_path)
-        if blur is not None:
-            head, ext = os.path.splitext(target_path)
-            target_path = '%s-blur-%.2f%s' % (head, blur, ext)
-        util.save_image(os.path.join(output_folder, target_path), image)
+        cv2.imwrite(os.path.join(output_folder, target_path), output_image)      #util.save_image(os.path.join(output_folder, target_path), image)
+
+    def do(self, y_input_image, bicubic_y_input_image=None):
+
+        h, w = y_input_image.shape[:2]
+        ch = y_input_image.shape[2] if len(y_input_image.shape) > 2 else 1
+
+        assert bicubic_y_input_image is not None
+
+        if self.max_value != 255.0:
+            y_input_image *= self.max_value / 255.0
+            bicubic_y_input_image *= self.max_value / 255.0
+
+        assert self.self_ensemble == 1
+
+        y = self.sess.run(self.y_, feed_dict={self.x: y_input_image.reshape(1, h, w, ch),
+                                              self.x2: bicubic_y_input_image.reshape(1, self.scale * h,
+                                                                                     self.scale * w, ch),
+                                              self.dropout: 1.0, self.is_training: 0})
+        output_image = y[0,:,:,0]
+
+        if self.max_value != 255.0:
+            output_image *= 255.0 / self.max_value
+
+        return output_image.astype(np.uint8)
 
 
 def upscale(model, fname, output):
     start = time.time()
     model.do_for_file(fname, output)
-    #for blur in (0.2, 0.4, 0.6, 0.8):
-    #    model.do_for_file(fname, output, blur=blur)
     print('upscaling took: %.3f seconds' % (time.time() - start))
+
 
 def main(_):
     model = Upscaler(FLAGS, model_name=FLAGS.model_name)
