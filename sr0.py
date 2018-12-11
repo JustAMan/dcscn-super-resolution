@@ -1,31 +1,3 @@
-"""
-Paper: "Fast and Accurate Image Super Resolution by Deep CNN with Skip Connection and Network in Network"
-Author: Jin Yamanaka
-Github: https://github.com/jiny2001/dcscn-image-super-resolution
-Ver: 2.0
-
-Apply Super Resolution for image file.
-
---file=[your image filename]: will generate HR images.
-see output/[model_name]/ for checking result images.
-
-Also you must put same model args as you trained.
-
-For ex, if you trained like below,
-> python train.py --scale=3
-
-Then you must run sr.py like below.
-> python sr.py --scale=3 --file=your_image_file_path
-
-
-If you trained like below,
-> python train.py --dataset=bsd200 --layers=8 --filters=96 --training_images=30000
-
-Then you must run sr.py like below.
-> python sr.py --layers=8 --filters=96 --file=your_image_file_path
-
-"""
-
 import os
 import time
 import glob
@@ -44,27 +16,11 @@ args.flags.DEFINE_string("file", "image.jpg", "Target filename")
 args.flags.DEFINE_string("file_glob", "", "Target filenames pattern")
 FLAGS = args.get()
 
+
 def cv_convert_rgb_to_y(image):
     ycbcr = cv2.cvtColor(image, cv2.COLOR_RGB2YCR_CB)
     only_Cb, only_Cr, only_y = cv2.split(ycbcr)
     return only_y
-
-
-def do_cv(src, dest):
-        inp = cv2.imread(src)
-
-        resized = cv2.resize(inp, (inp.shape[1] * 2, inp.shape[0] * 2))
-
-        ycbcr = cv2.cvtColor(resized, cv2.COLOR_RGB2YCR_CB)
-        only_Cb, only_Cr, only_y = cv2.split(ycbcr)
-
-        scaled_ycbcr_image = cv2.cvtColor(resized, cv2.COLOR_RGB2YCR_CB)
-
-        new_Cb, new_Cr, new_y = cv2.split(scaled_ycbcr_image)
-        image = cv2.merge((new_Cb, new_Cr, only_y ))
-        image = cv2.cvtColor(image, cv2.COLOR_YCR_CB2RGB)
-
-        cv2.imwrite(dest, image)
 
 
 class Upscaler(DCSCN.SuperResolution):

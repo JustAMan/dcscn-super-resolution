@@ -26,11 +26,8 @@ def main(not_parsed_args):
 
     model = DCSCN.SuperResolution(FLAGS, model_name=FLAGS.model_name)
 
-    if FLAGS.build_batch:
-        model.load_datasets(FLAGS.data_dir + "/" + FLAGS.dataset, FLAGS.batch_dir + "/" + FLAGS.dataset,
-                            FLAGS.batch_image_size, FLAGS.stride_size)
-    else:
-        model.load_dynamic_datasets(FLAGS.data_dir + "/" + FLAGS.dataset, FLAGS.batch_image_size)
+    model.load_dynamic_datasets(FLAGS.data_dir + "/" + FLAGS.dataset, FLAGS.batch_image_size)
+
     model.build_graph()
     model.build_optimizer()
     model.build_summary_saver()

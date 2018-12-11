@@ -146,26 +146,6 @@ class SuperResolution(tf_graph.TensorflowGraph):
                                             resampling_method=self.resampling_method)
         self.train.set_data_dir(data_dir)
 
-    def load_datasets(self, data_dir, batch_dir, batch_image_size, stride_size=0):
-        """ build input patch images and loads as a datasets
-        Opens image directory as a datasets.
-        Each images are splitted into patch images and converted to input image. Since loading
-        (especially from PNG/JPG) and building input-LR images needs much computation in the
-        training phase, building pre-processed images makes training much faster. However, images
-        are limited by divided grids.
-        """
-
-        batch_dir += "/scale%d" % self.scale
-
-        self.train = loader.BatchDataSets(self.scale, batch_dir, batch_image_size, stride_size, channels=self.channels,
-                                          resampling_method=self.resampling_method)
-
-        if not self.train.is_batch_exist():
-            self.train.build_batch(data_dir)
-        else:
-            self.train.load_batch_counts()
-        self.train.load_all_batch_images()
-
     def init_epoch_index(self):
 
         self.batch_input = self.batch_num * [None]
@@ -481,7 +461,6 @@ class SuperResolution(tf_graph.TensorflowGraph):
             util.print_filter_weights(weight)
 
     def evaluate(self, test_filenames):
-
         total_psnr = total_ssim = 0
         if len(test_filenames) == 0:
             return 0, 0
@@ -616,29 +595,17 @@ class SuperResolution(tf_graph.TensorflowGraph):
 
         true_image = util.set_image_alignment(util.load_image(file_path, print_console=False), self.scale)
 
-        if true_image.shape[2] == 3 and self.channels == 1:
+        # Assuming the image is color
+        assert true_image.shape[2] == 3 and self.channels == 1
 
-            # for color images
-            input_y_image = loader.build_input_image(true_image, channels=self.channels, scale=self.scale,
-                                                     alignment=self.scale, convert_ycbcr=True)
-            true_y_image = util.convert_rgb_to_y(true_image)
-            input_bicubic_y_image = util.resize_image_by_pil(input_y_image, self.scale,
-                                                             resampling_method=self.resampling_method)
-            output_y_image = self.do(input_y_image, input_bicubic_y_image)
-            psnr, ssim = util.compute_psnr_and_ssim(true_y_image, output_y_image,
-                                                    border_size=self.psnr_calc_border_size)
-
-        elif true_image.shape[2] == 1 and self.channels == 1:
-
-            # for monochrome images
-            input_image = loader.build_input_image(true_image, channels=self.channels, scale=self.scale,
-                                                   alignment=self.scale)
-            input_bicubic_y_image = util.resize_image_by_pil(input_image, self.scale,
-                                                             resampling_method=self.resampling_method)
-            output_image = self.do(input_image, input_bicubic_y_image)
-            psnr, ssim = util.compute_psnr_and_ssim(true_image, output_image, border_size=self.psnr_calc_border_size)
-        else:
-            return None, None
+        input_y_image = loader.build_input_image(true_image, channels=self.channels, scale=self.scale,
+                                                 alignment=self.scale, convert_ycbcr=True)
+        true_y_image = util.convert_rgb_to_y(true_image)
+        input_bicubic_y_image = util.resize_image_by_pil(input_y_image, self.scale,
+                                                         resampling_method=self.resampling_method)
+        output_y_image = self.do(input_y_image, input_bicubic_y_image)
+        psnr, ssim = util.compute_psnr_and_ssim(true_y_image, output_y_image,
+                                                border_size=self.psnr_calc_border_size)
 
         if print_console:
             print("[%s] PSNR:%f, SSIM:%f" % (file_path, psnr, ssim))

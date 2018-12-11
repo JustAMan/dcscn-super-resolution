@@ -15,7 +15,9 @@ import numpy as np
 import tensorflow as tf
 from PIL import Image
 from os.path import isfile, join
-from scipy import misc
+#from scipy import misc
+
+import cv2
 
 from skimage.measure import compare_psnr, compare_ssim
 
@@ -115,61 +117,29 @@ def save_image(filename, image, qua=95, print_console=False):
     if directory != "" and not os.path.exists(directory):
         os.makedirs(directory)
 
-    image = misc.toimage(image, cmin=0, cmax=255)  # to avoid range rescaling
+    #image = misc.toimage(image, cmin=0, cmax=255)  # to avoid range rescaling
     #misc.imsave(filename, image)
-    image.save(filename, quality=qua)
+    #image.save(filename, quality=qua)
+    cv2.imwrite(filename, image, [int(cv2.IMWRITE_JPEG_QUALITY), qua])
 
     if print_console:
         print("Saved [%s]" % filename)
 
-
-def save_image_data(filename, image):
-    directory = os.path.dirname(filename)
-    if directory != "" and not os.path.exists(directory):
-        os.makedirs(directory)
-
-    np.save(filename, image)
-    print("Saved [%s]" % filename)
-
-
 def convert_rgb_to_y(image):
-    if len(image.shape) <= 2 or image.shape[2] == 1:
-        return image
-
-    xform = np.array([[65.738 / 256.0, 129.057 / 256.0, 25.064 / 256.0]])
-    y_image = image.dot(xform.T) + 16.0
-
-    return y_image
+    ycbcr = cv2.cvtColor(image, cv2.COLOR_RGB2YCR_CB)
+    only_Cb, only_Cr, only_y = cv2.split(ycbcr)
+    only_y = np.atleast_3d(only_y)
+    return only_y.astype('float32')
 
 
 def convert_rgb_to_ycbcr(image):
-    if len(image.shape) < 2 or image.shape[2] == 1:
-        return image
-
-    xform = np.array(
-        [[65.738 / 256.0, 129.057 / 256.0, 25.064 / 256.0],
-         [- 37.945 / 256.0, - 74.494 / 256.0, 112.439 / 256.0],
-         [112.439 / 256.0, - 94.154 / 256.0, - 18.285 / 256.0]])
-
-    ycbcr_image = image.dot(xform.T)
-    ycbcr_image[:, :, 0] += 16.0
-    ycbcr_image[:, :, [1, 2]] += 128.0
-
-    return ycbcr_image
+    ycbcr = cv2.cvtColor(image, cv2.COLOR_RGB2YCR_CB)
+    return ycbcr
 
 
 def convert_ycbcr_to_rgb(ycbcr_image):
-    rgb_image = np.zeros([ycbcr_image.shape[0], ycbcr_image.shape[1], 3])  # type: np.ndarray
-
-    rgb_image[:, :, 0] = ycbcr_image[:, :, 0] - 16.0
-    rgb_image[:, :, [1, 2]] = ycbcr_image[:, :, [1, 2]] - 128.0
-    xform = np.array(
-        [[298.082 / 256.0, 0, 408.583 / 256.0],
-         [298.082 / 256.0, -100.291 / 256.0, -208.120 / 256.0],
-         [298.082 / 256.0, 516.412 / 256.0, 0]])
-    rgb_image = rgb_image.dot(xform.T)
-
-    return rgb_image
+    image = cv2.cvtColor(ycbcr_image, cv2.COLOR_YCR_CB2RGB)
+    return image
 
 
 def convert_y_and_cbcr_to_rgb(y_image, cbcr_image):
@@ -202,6 +172,9 @@ def set_image_alignment(image, alignment):
 
 
 def resize_image_by_pil(image, scale, resampling_method="bicubic"):
+
+    assert resampling_method == "bicubic"
+
     width, height = image.shape[1], image.shape[0]
     new_width = int(width * scale)
     new_height = int(height * scale)
@@ -216,18 +189,18 @@ def resize_image_by_pil(image, scale, resampling_method="bicubic"):
         method = Image.LANCZOS
 
     if len(image.shape) == 3 and image.shape[2] == 3:
-        image = Image.fromarray(image, "RGB")
-        image = image.resize([new_width, new_height], resample=method)
-        image = np.asarray(image)
+        #image = Image.fromarray(image, "RGB")
+        image = cv2.resize(image, (new_width, new_height))
+        #image = np.asarray(image)
     elif len(image.shape) == 3 and image.shape[2] == 4:
         # the image may has an alpha channel
-        image = Image.fromarray(image, "RGB")
-        image = image.resize([new_width, new_height], resample=method)
-        image = np.asarray(image)
+        #image = Image.fromarray(image, "RGB")
+        image = cv2.resize(image, (new_width, new_height))
+        #image = np.asarray(image)
     else:
-        image = Image.fromarray(image.reshape(height, width))
-        image = image.resize([new_width, new_height], resample=method)
-        image = np.asarray(image)
+        image = image.reshape(height, width) #Image.fromarray(image.reshape(height, width))
+        image = cv2.resize(image, (new_width, new_height))
+        #image = np.asarray(image)
         image = image.reshape(new_height, new_width, 1)
     return image
 
@@ -237,7 +210,7 @@ def load_image(filename, width=0, height=0, channels=0, alignment=0, print_conso
         raise LoadError("File not found [%s]" % filename)
 
     try:
-        image = np.atleast_3d(misc.imread(filename))
+        image = np.atleast_3d(cv2.imread(filename))
 
         if (width != 0 and image.shape[1] != width) or (height != 0 and image.shape[0] != height):
             raise LoadError("Attributes mismatch")

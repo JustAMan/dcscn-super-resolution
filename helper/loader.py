@@ -26,6 +26,9 @@ TRUE_SUFFIX = "-true"
 
 def make_input_image(file_path, true_image, channels=1, scale=1,
         convert_ycbcr=True, resampling_method='bicubic', print_console=True):
+    if true_image is not None:
+        assert len(true_image.shape) == 3 and true_image.shape[2] == 3
+
     fname, fext = os.path.splitext(file_path)
     input_image = None
     if fname.lower().endswith(TRUE_SUFFIX):
@@ -33,15 +36,10 @@ def make_input_image(file_path, true_image, channels=1, scale=1,
         head, tail = os.path.split(target)
         target = os.path.join(head, 'input', tail)
         if os.path.exists(target):
-            #print('taking input from "%s"' % target)
             input_image = util.set_image_alignment(util.load_image(target, print_console=print_console), scale)
-            if channels == 1 and input_image.shape[2] == 3 and convert_ycbcr:
-                # Preparing the source image for training
-                input_image = util.convert_rgb_to_y(input_image)
-                
+
     if input_image is None and true_image is not None:
         input_image = util.resize_image_by_pil(true_image, 1.0 / scale, resampling_method=resampling_method)
-        input_image = util.convert_rgb_to_y(input_image)
 
     hblur_radius = random.randrange(0, 70) / 100.
     vblur_radius = random.randrange(0, 100) / 100.
@@ -64,10 +62,11 @@ def build_image_set(file_path, channels=1, scale=1, convert_ycbcr=True, resampli
                     print_console=True):
     true_image = util.set_image_alignment(util.load_image(file_path, print_console=print_console), scale)
 
+    input_image = make_input_image(file_path, true_image, channels, scale, convert_ycbcr, resampling_method, print_console)
+
     if channels == 1 and true_image.shape[2] == 3 and convert_ycbcr:
         true_image = util.convert_rgb_to_y(true_image)
 
-    input_image = make_input_image(file_path, true_image, channels, scale, convert_ycbcr, resampling_method, print_console)
     input_interpolated_image = util.resize_image_by_pil(input_image, scale, resampling_method=resampling_method)
 
     return input_image, input_interpolated_image, true_image
@@ -404,11 +403,6 @@ class DynamicDataSetsWithInput(DynamicDataSets):
 
         input_image = make_input_image(file_path, image, scale=self.scale,
             convert_ycbcr=True, print_console=False)
-        #if input_image is None:
-        #    input_image = util.resize_image_by_pil(image, 1 / self.scale)
-        #else:
-        #    x, y = x // self.scale, y // self.scale
-        #    input_image = input_image[y:y + self.batch_image_size, x:x + self.batch_image_size, :]
 
         flip = random.randrange(0, 4)
         if flip == 1 or flip == 3:
@@ -423,6 +417,7 @@ class DynamicDataSetsWithInput(DynamicDataSets):
             input_image = np.rot90(input_image)
             image = np.rot90(image)
 
+        input_image = util.convert_rgb_to_y(input_image)
         input_bicubic_image = util.resize_image_by_pil(input_image, self.scale)
 
         if max_value != 255:
@@ -430,6 +425,8 @@ class DynamicDataSetsWithInput(DynamicDataSets):
             input_image = np.multiply(input_image, scale)
             input_bicubic_image = np.multiply(input_bicubic_image, scale)
             image = np.multiply(image, scale)
+
+        image = util.convert_rgb_to_y(image)
 
         return input_image, input_bicubic_image, image
 
@@ -456,7 +453,7 @@ class DynamicDataSetsWithInput(DynamicDataSets):
         x -= x % self.scale
         y -= y % self.scale
         image = image[y:y + load_batch_size, x:x + load_batch_size, :]
-        image = build_input_image(image, channels=self.channels, convert_ycbcr=True)
+        image = build_input_image(image, channels=3, convert_ycbcr=True)
 
         return image, x, y
 

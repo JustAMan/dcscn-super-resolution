@@ -31,7 +31,7 @@ flags.DEFINE_string("activator", "prelu", "Activator can be [relu, leaky_relu, p
 flags.DEFINE_boolean("pixel_shuffler", True, "Use Pixel Shuffler instead of transposed CNN")
 flags.DEFINE_integer("pixel_shuffler_filters", 0,
                      "Num of Pixel Shuffler output channels. 0 means use same channels as input.")
-flags.DEFINE_integer("self_ensemble", 8, "Number of using self ensemble method. [1 - 8]")
+flags.DEFINE_integer("self_ensemble", 1, "Number of using self ensemble method. [1 - 8]")
 flags.DEFINE_boolean("batch_norm", False, "use batch normalization after each CNNs")
 
 # Training Parameters
@@ -45,7 +45,7 @@ flags.DEFINE_float("beta1", 0.9, "Beta1 for adam optimizer")
 flags.DEFINE_float("beta2", 0.999, "Beta2 for adam optimizer")
 flags.DEFINE_float("epsilon", 1e-8, "epsilon for adam optimizer")
 flags.DEFINE_float("momentum", 0.9, "Momentum for momentum optimizer and rmsprop optimizer")
-flags.DEFINE_integer("batch_num", 20, "Number of mini-batch images for training")
+flags.DEFINE_integer("batch_num", 1, "Number of mini-batch images for training")
 flags.DEFINE_integer("batch_image_size", 48, "Image size for mini-batch")
 flags.DEFINE_integer("stride_size", 0, "Stride size for mini-batch. If it is 0, use half of batch_image_size")
 flags.DEFINE_integer("training_images", 24000, "Number of training on each epoch")
@@ -53,8 +53,8 @@ flags.DEFINE_boolean("use_l1_loss", False, "Use L1 Error as loss function instea
 
 # Learning Rate Control for Training
 flags.DEFINE_float("initial_lr", 0.002, "Initial learning rate")
-flags.DEFINE_float("lr_decay", 0.5, "Learning rate decay rate")
-flags.DEFINE_integer("lr_decay_epoch", 9, "After this epochs are completed, learning rate will be decayed by lr_decay.")
+flags.DEFINE_float("lr_decay", 0.75, "Learning rate decay rate")
+flags.DEFINE_integer("lr_decay_epoch", 4, "After this epochs are completed, learning rate will be decayed by lr_decay.")
 flags.DEFINE_float("end_lr", 2e-5, "Training end learning rate. If the current learning rate gets lower than this"
                                    "value, then training will be finished.")
 
@@ -69,8 +69,6 @@ flags.DEFINE_float("max_value", 255, "For normalize image pixel value")
 flags.DEFINE_integer("channels", 1, "Number of image channels used. Now it should be 1. using only Y from YCbCr.")
 flags.DEFINE_integer("psnr_calc_border_size", -1,
                      "Cropping border size for calculating PSNR. if < 0, use 2 + scale for default.")
-flags.DEFINE_boolean("build_batch", False, "Build pre-processed input batch. Makes training significantly faster but "
-                                           "the patches are limited to be on the grid.")
 
 # Environment (all directory name should not contain '/' after )
 flags.DEFINE_string("checkpoint_dir", "models", "Directory for checkpoints")
