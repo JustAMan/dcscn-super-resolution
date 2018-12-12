@@ -127,32 +127,31 @@ def save_image(filename, image, qua=95, print_console=False):
 
 def convert_rgb_to_y(image):
     ycbcr = cv2.cvtColor(image, cv2.COLOR_RGB2YCR_CB)
-    only_Cb, only_Cr, only_y = cv2.split(ycbcr)
+    only_y, only_Cr, only_Cb = cv2.split(ycbcr)
     only_y = np.atleast_3d(only_y)
     return only_y.astype('float32')
 
 
+def convert_ycbcr_to_y_cbcr(ycbcr):
+    only_y, only_Cr, only_Cb = cv2.split(ycbcr)
+    only_y = np.atleast_3d(only_y)
+
+    return only_y.astype('float32'), (only_Cb.astype('float32'), only_Cr.astype('float32'))
+    
+
 def convert_rgb_to_ycbcr(image):
     ycbcr = cv2.cvtColor(image, cv2.COLOR_RGB2YCR_CB)
-    return ycbcr
+    return ycbcr.astype('float32')
 
 
 def convert_ycbcr_to_rgb(ycbcr_image):
-    image = cv2.cvtColor(ycbcr_image, cv2.COLOR_YCR_CB2RGB)
+    image = cv2.cvtColor(ycbcr_image.clip(0, 255).astype(np.uint8), cv2.COLOR_YCR_CB2RGB)
     return image
 
 
 def convert_y_and_cbcr_to_rgb(y_image, cbcr_image):
-    if len(y_image.shape) <= 2:
-        y_image = y_image.reshape[y_image.shape[0], y_image.shape[1], 1]
-
-    if len(y_image.shape) == 3 and y_image.shape[2] == 3:
-        y_image = y_image[:, :, 0:1]
-
-    ycbcr_image = np.zeros([y_image.shape[0], y_image.shape[1], 3])
-    ycbcr_image[:, :, 0] = y_image[:, :, 0]
-    ycbcr_image[:, :, 1:3] = cbcr_image[:, :, 0:2]
-
+    only_Cb, only_Cr = cbcr_image
+    ycbcr_image = cv2.merge((y_image, only_Cr, only_Cb))
     return convert_ycbcr_to_rgb(ycbcr_image)
 
 

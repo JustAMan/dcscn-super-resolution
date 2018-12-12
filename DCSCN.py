@@ -443,7 +443,7 @@ class SuperResolution(tf_graph.TensorflowGraph):
             estimated -= h * 60 * 60
             m = estimated // 60
             s = estimated - m * 60
-            line_b = "Epoch:%d LR:%f (%2.3fsec/step) Estimated:%d:%d:%d" % (
+            line_b = "Epoch:%d LR:%f (%2.3fsec/step) Estimated:%d:%02d:%02d" % (
                 self.epochs_completed, self.lr, processing_time, h, m, s)
             if log:
                 logging.info(line_a)
@@ -523,6 +523,7 @@ class SuperResolution(tf_graph.TensorflowGraph):
 
         if len(org_image.shape) >= 3 and org_image.shape[2] == 3 and self.channels == 1:
             input_y_image = util.convert_rgb_to_y(org_image)
+            util.save_image(output_folder + filename + '_input_y' + extension, input_y_image)
             scaled_image = util.resize_image_by_pil(input_y_image, self.scale, resampling_method=self.resampling_method)
             util.save_image(output_folder + filename + "_bicubic_y" + extension, scaled_image)
             output_y_image = self.do(input_y_image)
@@ -530,7 +531,8 @@ class SuperResolution(tf_graph.TensorflowGraph):
 
             scaled_ycbcr_image = util.convert_rgb_to_ycbcr(
                 util.resize_image_by_pil(org_image, self.scale, self.resampling_method))
-            image = util.convert_y_and_cbcr_to_rgb(output_y_image, scaled_ycbcr_image[:, :, 1:3])
+            _, scaled_cbcr = util.convert_ycbcr_to_y_cbcr(scaled_ycbcr_image)
+            image = util.convert_y_and_cbcr_to_rgb(output_y_image, scaled_cbcr)
         else:
             scaled_image = util.resize_image_by_pil(org_image, self.scale, resampling_method=self.resampling_method)
             util.save_image(output_folder + filename + "_bicubic_y" + extension, scaled_image)
@@ -562,7 +564,8 @@ class SuperResolution(tf_graph.TensorflowGraph):
             loss_image = util.get_loss_image(true_ycbcr_image[:, :, 0:1], output_y_image,
                                              border_size=self.psnr_calc_border_size)
 
-            output_color_image = util.convert_y_and_cbcr_to_rgb(output_y_image, true_ycbcr_image[:, :, 1:3])
+            _, true_cbcr = util.convert_ycbcr_to_y_cbcr(true_ycbcr_image)
+            output_color_image = util.convert_y_and_cbcr_to_rgb(output_y_image, true_cbcr)
 
             util.save_image(output_directory + file_path, true_image)
             util.save_image(output_directory + filename + "_input" + extension, input_y_image)
