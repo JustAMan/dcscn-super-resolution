@@ -35,6 +35,7 @@ class Upscaler(DCSCN.SuperResolution):
         target_path = os.path.basename(file_path)
         cv2.imwrite(os.path.join(output_folder, target_path), output_image)
 
+
 def upscale(model, fname, output):
     start = time.time()
     model.do_for_file(fname, output)

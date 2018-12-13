@@ -65,6 +65,9 @@ class SuperResolution(tf_graph.TensorflowGraph):
         self.lr_decay_epoch = flags.lr_decay_epoch
 
         # Dataset or Others
+        self.image_maker = loader.BlurryJpegifiedInputImageMaker(flags.hblur_max, flags.vblur_max, jpegify=(flags.jpegify_min, flags.jpegify_max))
+        print("Created BlurryJpegifiedInputImageMaker with hblur_max=%s, vblur_max=%s, jpegify=(%s, %s)" %
+              (flags.hblur_max, flags.vblur_max, flags.jpegify_min, flags.jpegify_max))
         self.training_images = int(math.ceil(flags.training_images / flags.batch_num) * flags.batch_num)
         self.train = None
         self.test = None
@@ -143,11 +146,10 @@ class SuperResolution(tf_graph.TensorflowGraph):
         """
 
         self.train = loader.DynamicDataSetsWithInput(self.scale, batch_image_size, channels=self.channels,
-                                            resampling_method=self.resampling_method)
+                                            resampling_method=self.resampling_method, image_maker=self.image_maker)
         self.train.set_data_dir(data_dir)
 
     def init_epoch_index(self):
-
         self.batch_input = self.batch_num * [None]
         self.batch_input_bicubic = self.batch_num * [None]
         self.batch_true = self.batch_num * [None]
@@ -158,13 +160,11 @@ class SuperResolution(tf_graph.TensorflowGraph):
         self.train.init_batch_index()
 
     def build_input_batch(self):
-
         for i in range(self.batch_num):
             self.batch_input[i], self.batch_input_bicubic[i], self.batch_true[i] = self.train.load_batch_image(
                 self.max_value)
 
     def build_graph(self):
-
         self.x = tf.placeholder(tf.float32, shape=[None, None, None, self.channels], name="x")
         self.y = tf.placeholder(tf.float32, shape=[None, None, None, self.output_channels], name="y")
         self.x2 = tf.placeholder(tf.float32, shape=[None, None, None, self.output_channels], name="x2")
@@ -514,7 +514,6 @@ class SuperResolution(tf_graph.TensorflowGraph):
         return hr_image
 
     def do_for_file(self, file_path, output_folder="output"):
-
         org_image = util.load_image(file_path)
 
         filename, extension = os.path.splitext(os.path.basename(file_path))
@@ -586,50 +585,27 @@ class SuperResolution(tf_graph.TensorflowGraph):
 
     def do_for_evaluate(self, file_path, print_console=False):
         return self.do_for_evaluate_with_output(file_path, None, print_console)
-        # true_image = util.set_image_alignment(util.load_image(file_path, print_console=False), self.scale)
-        #
-        # # Assuming the image is color
-        # assert true_image.shape[2] == 3 and self.channels == 1, "Only 3-channel images are supported"
-        #
-        # input_image = loader.build_input_image(true_image, channels=self.channels, scale=self.scale,
-        #                                          alignment=self.scale)
-        #
-        # input_y_image = util.convert_rgb_to_y(input_image)
-        # true_y_image = util.convert_rgb_to_y(true_image)
-        # input_bicubic_y_image = util.resize_image_by_pil(input_y_image, self.scale,
-        #                                                  resampling_method=self.resampling_method)
-        #
-        # output_y_image = self.do(input_y_image, input_bicubic_y_image)
-        #
-        # psnr, ssim = util.compute_psnr_and_ssim(true_y_image, output_y_image,
-        #                                         border_size=self.psnr_calc_border_size)
-        #
-        # if print_console:
-        #     print("[%s] PSNR:%f, SSIM:%f" % (file_path, psnr, ssim))
-        #
-        # return psnr, ssim
 
-    def evaluate_bicubic(self, file_path, print_console=False):
-
-        true_image = util.set_image_alignment(util.load_image(file_path, print_console=False), self.scale)
-
-        if true_image.shape[2] == 3 and self.channels == 1:
-            input_image = loader.build_input_image(true_image, scale=self.scale,
-                                                   alignment=self.scale, convert_ycbcr=True)
-            true_image = util.convert_rgb_to_y(true_image)
-        elif true_image.shape[2] == 1 and self.channels == 1:
-            input_image = loader.build_input_image(true_image, scale=self.scale,
-                                                   alignment=self.scale)
-        else:
-            return None, None
-
-        input_bicubic_image = util.resize_image_by_pil(input_image, self.scale, resampling_method=self.resampling_method)
-        psnr, ssim = util.compute_psnr_and_ssim(true_image, input_bicubic_image, border_size=self.psnr_calc_border_size)
-
-        if print_console:
-            print("PSNR:%f, SSIM:%f" % (psnr, ssim))
-
-        return psnr, ssim
+    # def evaluate_bicubic(self, file_path, print_console=False):
+    #     true_image = util.set_image_alignment(util.load_image(file_path, print_console=False), self.scale)
+    #
+    #     if true_image.shape[2] == 3 and self.channels == 1:
+    #         input_image = loader.build_input_image(true_image, scale=self.scale,
+    #                                                alignment=self.scale, convert_ycbcr=True)
+    #         true_image = util.convert_rgb_to_y(true_image)
+    #     elif true_image.shape[2] == 1 and self.channels == 1:
+    #         input_image = loader.build_input_image(true_image, scale=self.scale,
+    #                                                alignment=self.scale)
+    #     else:
+    #         return None, None
+    #
+    #     input_bicubic_image = util.resize_image_by_pil(input_image, self.scale, resampling_method=self.resampling_method)
+    #     psnr, ssim = util.compute_psnr_and_ssim(true_image, input_bicubic_image, border_size=self.psnr_calc_border_size)
+    #
+    #     if print_console:
+    #         print("PSNR:%f, SSIM:%f" % (psnr, ssim))
+    #
+    #     return psnr, ssim
 
     def init_train_step(self):
         self.lr = self.initial_lr
@@ -645,7 +621,6 @@ class SuperResolution(tf_graph.TensorflowGraph):
         self.total_time = time.time() - self.start_time
 
     def print_steps_completed(self, output_to_logging=False):
-
         if self.step == 0:
             return
 
@@ -673,9 +648,4 @@ class SuperResolution(tf_graph.TensorflowGraph):
                                                                         self.lr_input: self.lr,
                                                                         self.dropout: self.dropout_rate},
                                 options=run_options, run_metadata=run_metadata)
-
-        # tf.contrib.tfprof.model_analyzer.print_model_analysis(
-        #   tf.get_default_graph(),
-        #   run_meta=run_metadata,
-        #   tfprof_options=tf.contrib.tfprof.model_analyzer.PRINT_ALL_TIMING_MEMORY)
         self.first_training = False

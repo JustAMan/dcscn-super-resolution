@@ -65,6 +65,14 @@ flags.DEFINE_integer("tests", 1, "Number of training sets")
 flags.DEFINE_boolean("do_benchmark", False, "Evaluate the performance for set5, set14 and bsd100 after the training.")
 
 # Image Processing
+flags.DEFINE_integer("hblur_max", 50, "Horizontal blur of input image for training "
+                                      "(0 means no blur, 100 means one pixel blur)")
+flags.DEFINE_integer("vblur_max", 50, "Vertical blur of input image for training "
+                                      "(0 means no blur, 100 means one pixel blur)")
+flags.DEFINE_integer("jpegify_min", 60, "Minimal quality of JPEG encoding of the input image for training (0..100)")
+flags.DEFINE_integer("jpegify_max", 120, "Maximal quality of JPEG encoding of the input image for training "
+                                         "(can be greater than 100 that means no JPEG encoding with some probability)")
+
 flags.DEFINE_float("max_value", 255, "For normalize image pixel value")
 flags.DEFINE_integer("channels", 1, "Number of image channels used. Now it should be 1. using only Y from YCbCr.")
 flags.DEFINE_integer("psnr_calc_border_size", -1,
