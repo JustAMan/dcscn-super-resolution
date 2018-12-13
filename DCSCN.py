@@ -540,32 +540,36 @@ class SuperResolution(tf_graph.TensorflowGraph):
 
         util.save_image(output_folder + filename + "_result" + extension, image)
 
-    def do_for_evaluate_with_output(self, file_path, output_directory, print_console=False):
-
-        filename, extension = os.path.splitext(file_path)
-        output_directory += "/" + self.name + "/"
-        util.make_dir(output_directory)
-
+    def do_for_evaluate_with_output(self, file_path, output_directory=None, print_console=False):
         true_image = util.set_image_alignment(util.load_image(file_path, print_console=False), self.scale)
 
-        if true_image.shape[2] == 3 and self.channels == 1:
+        # Assuming the image is color
+        assert true_image.shape[2] == 3 and self.channels == 1, "Only 3-channel images are supported"
 
-            # for color images
-            input_y_image = loader.build_input_image(true_image, channels=self.channels, scale=self.scale,
-                                                     alignment=self.scale, convert_ycbcr=True)
-            input_bicubic_y_image = util.resize_image_by_pil(input_y_image, self.scale,
-                                                             resampling_method=self.resampling_method)
+        input_image = loader.build_input_image(true_image, scale=self.scale,
+                                                 alignment=self.scale)
 
+        input_y_image = util.convert_rgb_to_y(input_image)
+        true_y_image = util.convert_rgb_to_y(true_image)
+        input_bicubic_y_image = util.resize_image_by_pil(input_y_image, self.scale,
+                                                         resampling_method=self.resampling_method)
+
+        output_y_image = self.do(input_y_image, input_bicubic_y_image)
+
+        psnr, ssim = util.compute_psnr_and_ssim(true_y_image, output_y_image,
+                                                border_size=self.psnr_calc_border_size)
+
+        if output_directory:
             true_ycbcr_image = util.convert_rgb_to_ycbcr(true_image)
-
-            output_y_image = self.do(input_y_image, input_bicubic_y_image)
-            psnr, ssim = util.compute_psnr_and_ssim(true_ycbcr_image[:, :, 0:1], output_y_image,
-                                                    border_size=self.psnr_calc_border_size)
-            loss_image = util.get_loss_image(true_ycbcr_image[:, :, 0:1], output_y_image,
-                                             border_size=self.psnr_calc_border_size)
-
             _, true_cbcr = util.convert_ycbcr_to_y_cbcr(true_ycbcr_image)
             output_color_image = util.convert_y_and_cbcr_to_rgb(output_y_image, true_cbcr)
+
+            loss_image = util.get_loss_image(true_y_image, output_y_image,
+                                             border_size=self.psnr_calc_border_size)
+
+            filename, extension = os.path.splitext(file_path)
+            output_directory += "/" + self.name + "/"
+            util.make_dir(output_directory)
 
             util.save_image(output_directory + file_path, true_image)
             util.save_image(output_directory + filename + "_input" + extension, input_y_image)
@@ -575,56 +579,46 @@ class SuperResolution(tf_graph.TensorflowGraph):
             util.save_image(output_directory + filename + "_result_c" + extension, output_color_image)
             util.save_image(output_directory + filename + "_loss" + extension, loss_image)
 
-        elif true_image.shape[2] == 1 and self.channels == 1:
-
-            # for monochrome images
-            input_image = loader.build_input_image(true_image, channels=self.channels, scale=self.scale,
-                                                   alignment=self.scale)
-            input_bicubic_y_image = util.resize_image_by_pil(input_image, self.scale,
-                                                             resampling_method=self.resampling_method)
-            output_image = self.do(input_image, input_bicubic_y_image)
-            psnr, ssim = util.compute_psnr_and_ssim(true_image, output_image, border_size=self.psnr_calc_border_size)
-            util.save_image(output_directory + file_path, true_image)
-            util.save_image(output_directory + filename + "_result" + extension, output_image)
-        else:
-            return None, None
-
         if print_console:
             print("[%s] PSNR:%f, SSIM:%f" % (filename, psnr, ssim))
 
         return psnr, ssim
 
     def do_for_evaluate(self, file_path, print_console=False):
-
-        true_image = util.set_image_alignment(util.load_image(file_path, print_console=False), self.scale)
-
-        # Assuming the image is color
-        assert true_image.shape[2] == 3 and self.channels == 1
-
-        input_y_image = loader.build_input_image(true_image, channels=self.channels, scale=self.scale,
-                                                 alignment=self.scale, convert_ycbcr=True)
-        true_y_image = util.convert_rgb_to_y(true_image)
-        input_bicubic_y_image = util.resize_image_by_pil(input_y_image, self.scale,
-                                                         resampling_method=self.resampling_method)
-        output_y_image = self.do(input_y_image, input_bicubic_y_image)
-        psnr, ssim = util.compute_psnr_and_ssim(true_y_image, output_y_image,
-                                                border_size=self.psnr_calc_border_size)
-
-        if print_console:
-            print("[%s] PSNR:%f, SSIM:%f" % (file_path, psnr, ssim))
-
-        return psnr, ssim
+        return self.do_for_evaluate_with_output(file_path, None, print_console)
+        # true_image = util.set_image_alignment(util.load_image(file_path, print_console=False), self.scale)
+        #
+        # # Assuming the image is color
+        # assert true_image.shape[2] == 3 and self.channels == 1, "Only 3-channel images are supported"
+        #
+        # input_image = loader.build_input_image(true_image, channels=self.channels, scale=self.scale,
+        #                                          alignment=self.scale)
+        #
+        # input_y_image = util.convert_rgb_to_y(input_image)
+        # true_y_image = util.convert_rgb_to_y(true_image)
+        # input_bicubic_y_image = util.resize_image_by_pil(input_y_image, self.scale,
+        #                                                  resampling_method=self.resampling_method)
+        #
+        # output_y_image = self.do(input_y_image, input_bicubic_y_image)
+        #
+        # psnr, ssim = util.compute_psnr_and_ssim(true_y_image, output_y_image,
+        #                                         border_size=self.psnr_calc_border_size)
+        #
+        # if print_console:
+        #     print("[%s] PSNR:%f, SSIM:%f" % (file_path, psnr, ssim))
+        #
+        # return psnr, ssim
 
     def evaluate_bicubic(self, file_path, print_console=False):
 
         true_image = util.set_image_alignment(util.load_image(file_path, print_console=False), self.scale)
 
         if true_image.shape[2] == 3 and self.channels == 1:
-            input_image = loader.build_input_image(true_image, channels=self.channels, scale=self.scale,
+            input_image = loader.build_input_image(true_image, scale=self.scale,
                                                    alignment=self.scale, convert_ycbcr=True)
             true_image = util.convert_rgb_to_y(true_image)
         elif true_image.shape[2] == 1 and self.channels == 1:
-            input_image = loader.build_input_image(true_image, channels=self.channels, scale=self.scale,
+            input_image = loader.build_input_image(true_image, scale=self.scale,
                                                    alignment=self.scale)
         else:
             return None, None

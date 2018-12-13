@@ -78,30 +78,13 @@ def make_input_image(file_path, true_image, scale=1,
 #     return build_input_image(image, width, height, channels, scale, alignment, convert_ycbcr)
 
 
-def build_input_image(image, width=0, height=0, channels=1, scale=1, alignment=0, convert_ycbcr=True):
-    """
-    build input image from file.
-    crop, adjust the image alignment for the scale factor, resize, convert color space.
-    """
-
-    if width != 0 and height != 0:
-        if image.shape[0] != height or image.shape[1] != width:
-            x = (image.shape[1] - width) // 2
-            y = (image.shape[0] - height) // 2
-            image = image[y: y + height, x: x + width, :]
+def build_input_image(image, scale=1, alignment=0):
 
     if alignment > 1:
         image = util.set_image_alignment(image, alignment)
 
     if scale != 1:
         image = util.resize_image_by_pil(image, 1.0 / scale)
-
-    if channels == 1 and image.shape[2] == 3:
-        if convert_ycbcr:
-            image = util.convert_rgb_to_y(image)
-    else:
-        if convert_ycbcr:
-            image = util.convert_rgb_to_ycbcr(image)
 
     return image
 
@@ -369,29 +352,29 @@ class DynamicDataSets:
         # return input_image, input_bicubic_image, image
 
     def load_random_patch(self, filename):
-
-        image = util.load_image(filename, print_console=False)
-        height, width = image.shape[0:2]
-
-        load_batch_size = self.batch_image_size * self.scale
-
-        if height < load_batch_size or width < load_batch_size:
-            print("Error: %s should have more than %d x %d size." % (filename, load_batch_size, load_batch_size))
-            return None
-
-        if height == load_batch_size:
-            y = 0
-        else:
-            y = random.randrange(height - load_batch_size)
-
-        if width == load_batch_size:
-            x = 0
-        else:
-            x = random.randrange(width - load_batch_size)
-        image = image[y:y + load_batch_size, x:x + load_batch_size, :]
-        image = build_input_image(image, channels=self.channels, convert_ycbcr=True)
-
-        return image
+        raise NotImplementedError
+        # image = util.load_image(filename, print_console=False)
+        # height, width = image.shape[0:2]
+        #
+        # load_batch_size = self.batch_image_size * self.scale
+        #
+        # if height < load_batch_size or width < load_batch_size:
+        #     print("Error: %s should have more than %d x %d size." % (filename, load_batch_size, load_batch_size))
+        #     return None
+        #
+        # if height == load_batch_size:
+        #     y = 0
+        # else:
+        #     y = random.randrange(height - load_batch_size)
+        #
+        # if width == load_batch_size:
+        #     x = 0
+        # else:
+        #     x = random.randrange(width - load_batch_size)
+        # image = image[y:y + load_batch_size, x:x + load_batch_size, :]
+        # image = build_input_image(image, convert_ycbcr=True)
+        #
+        # return image
 
 
 class DynamicDataSetsWithInput(DynamicDataSets):
@@ -453,7 +436,7 @@ class DynamicDataSetsWithInput(DynamicDataSets):
         x -= x % self.scale
         y -= y % self.scale
         image = image[y:y + load_batch_size, x:x + load_batch_size, :]
-        image = build_input_image(image, channels=3, convert_ycbcr=False)
+        image = build_input_image(image)
 
         return image
 
