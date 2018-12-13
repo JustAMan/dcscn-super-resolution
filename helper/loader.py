@@ -24,8 +24,8 @@ TRUE_IMAGE_DIR = "true"
 INPUT_SUFFIX = "-input"
 TRUE_SUFFIX = "-true"
 
-def make_input_image(file_path, true_image, channels=1, scale=1,
-        convert_ycbcr=True, resampling_method='bicubic', print_console=True):
+def make_input_image(file_path, true_image, scale=1,
+                     resampling_method='bicubic', print_console=True):
     if true_image is not None:
         assert len(true_image.shape) == 3 and true_image.shape[2] == 3
 
@@ -42,7 +42,7 @@ def make_input_image(file_path, true_image, channels=1, scale=1,
         input_image = util.resize_image_by_pil(true_image, 1.0 / scale, resampling_method=resampling_method)
 
     hblur_radius = random.randrange(0, 70) / 100.
-    vblur_radius = random.randrange(0, 100) / 100.
+    vblur_radius = random.randrange(0, 70) / 100.
     qua = random.randrange(40, 110)
 
     # print('blurring "%s" with radius %.2f' % (os.path.basename(file_path), blur_radius))
@@ -72,10 +72,10 @@ def make_input_image(file_path, true_image, channels=1, scale=1,
 #     return input_image, input_interpolated_image, true_image
 
 
-def load_input_image(filename, width=0, height=0, channels=1, scale=1, alignment=0, convert_ycbcr=True,
-                     print_console=True):
-    image = util.load_image(filename, print_console=print_console)
-    return build_input_image(image, width, height, channels, scale, alignment, convert_ycbcr)
+# def load_input_image(filename, width=0, height=0, channels=1, scale=1, alignment=0, convert_ycbcr=True,
+#                      print_console=True):
+#     image = util.load_image(filename, print_console=print_console)
+#     return build_input_image(image, width, height, channels, scale, alignment, convert_ycbcr)
 
 
 def build_input_image(image, width=0, height=0, channels=1, scale=1, alignment=0, convert_ycbcr=True):
@@ -402,8 +402,7 @@ class DynamicDataSetsWithInput(DynamicDataSets):
             file_path = self.filenames[self.get_next_image_no()]
             image = self.load_random_patch(file_path)
 
-        input_image = make_input_image(file_path, image, scale=self.scale,
-            convert_ycbcr=True, print_console=False)
+        input_image = make_input_image(file_path, image, scale=self.scale, print_console=False)
 
         flip = random.randrange(0, 4)
         if flip == 1 or flip == 3:
