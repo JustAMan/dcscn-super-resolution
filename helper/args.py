@@ -100,9 +100,9 @@ flags.DEFINE_integer("gpu_device_id", 0, "Device ID of GPUs which will be used t
 
 
 def get():
-    print("Python Interpreter version:%s" % sys.version[:3])
-    print("tensorflow version:%s" % tf.__version__)
-    print("numpy version:%s" % np.__version__)
+    sys.stderr.write("Python Interpreter version: %s\n" % sys.version[:3])
+    sys.stderr.write("tensorflow version: %s\n" % tf.__version__)
+    sys.stderr.write("numpy version: %s\n" % np.__version__)
 
     # check which library you are using
     # np.show_config()

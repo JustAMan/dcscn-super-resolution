@@ -13,6 +13,11 @@ import tensorflow as tf
 
 from helper import utilty as util
 
+import sys
+
+def print_err(msg):
+    sys.stderr.write('%s\n' % msg)
+
 
 class TensorflowGraph:
 
@@ -64,12 +69,12 @@ class TensorflowGraph:
         config.gpu_options.allow_growth = True  ## just for use the necesary memory of GPU
         config.gpu_options.visible_device_list = str(device_id)  ## this values depends of numbers of GPUs
 
-        print("Session and graph initialized.")
+        print_err("Session and graph initialized.")
         self.sess = tf.InteractiveSession(config=config, graph=tf.Graph())
 
     def init_all_variables(self):
         self.sess.run(tf.global_variables_initializer())
-        print("Model initialized.")
+        print_err("Model initialized.")
 
     def build_activator(self, input_tensor, features: int, activator="", leaky_relu_alpha=0.1, base_name=""):
         features = int(features)
@@ -183,10 +188,10 @@ class TensorflowGraph:
         util.delete_dir(model_archive_directory)
         try:
             shutil.copytree(self.tf_log_dir, model_archive_directory)
-            print("tensorboard log archived to [%s]." % model_archive_directory)
+            print_err("tensorboard log archived to [%s]." % model_archive_directory)
         except OSError as e:
-            print(e)
-            print("NG: tensorboard log archived to [%s]." % model_archive_directory)
+            print_err(e)
+            print_err("NG: tensorboard log archived to [%s]." % model_archive_directory)
 
     def load_model(self, name="", trial=0, output_log=False):
         if name == "" or name == "default":
@@ -198,14 +203,14 @@ class TensorflowGraph:
             filename = self.checkpoint_dir + "/" + name + ".ckpt"
 
         if not os.path.isfile(filename + ".index"):
-            print("Error. [%s] is not exist!" % filename)
+            print_err("Error. [%s] is not exist!" % filename)
             exit(-1)
 
         self.saver.restore(self.sess, filename)
         if output_log:
             logging.info("Model restored [ %s ]." % filename)
         else:
-            print("Model restored [ %s ]." % filename)
+            print_err("Model restored [ %s ]." % filename)
 
     def save_model(self, name="", trial=0, output_log=False):
         if name == "" or name == "default":
@@ -221,7 +226,7 @@ class TensorflowGraph:
         if output_log:
             logging.info("Model saved [%s]." % filename)
         else:
-            print("Model saved [%s]." % filename)
+            print_err("Model saved [%s]." % filename)
 
     def build_summary_saver(self):
         if self.enable_log:
