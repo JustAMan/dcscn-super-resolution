@@ -51,15 +51,26 @@ def start_ffmpeg_process1(in_filename):
     return subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
-def start_ffmpeg_process2(out_filename, width, height, fps, crf=20):
+def start_ffmpeg_process2(in_filename, out_filename, width, height, fps, crf=20):
+
     logger.info('Starting ffmpeg process for output file %s' % out_filename)
-    args = (
-        ffmpeg
-        .input('pipe:', format='rawvideo', pix_fmt='rgb24', s='{}x{}'.format(width, height), r=fps)
-        .output(out_filename, pix_fmt='yuv420p', vcodec='libx265', **{'crf': crf})
-        .overwrite_output()
-        .compile()
-    )
+    args = ['ffmpeg',
+            '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', '%sx%s' % (width, height), '-r', str(fps), '-i', 'pipe:',
+            '-i', in_filename,
+            '-map', '0:V', '-map', '1', '-map', '-1:V',
+            '-codec', 'copy', '-vcodec', 'libx265', '-pix_fmt', 'yuv420p', '-crf', str(crf), '-preset', 'slower',
+            '-map_chapters', '1',
+            '-map_metadata', '1',   # TODO Check if we need this
+            '-y', out_filename]
+    #args = (
+    #    ffmpeg
+    #    .input('pipe:', format='rawvideo', pix_fmt='rgb24', s='{}x{}'.format(width, height), r=fps)
+    #    .input(in_filename)
+    #    .output(out_filename, pix_fmt='yuv420p', vcodec='libx265', crf=crf, preset='slower')
+    #    .overwrite_output()
+    #    .compile()
+    #)
+
     return subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=1, close_fds=ON_POSIX)
 
 
@@ -105,7 +116,7 @@ def run(in_filename, out_filename, process_frame):
     uheight = rheight * FLAGS.scale
 
     process1 = start_ffmpeg_process1(in_filename)
-    process2 = start_ffmpeg_process2(out_filename, uwidth, uheight, fps)
+    process2 = start_ffmpeg_process2(in_filename, out_filename, uwidth, uheight, fps)
 
     q1err = Queue()
     p1err_t = Thread(target=enqueue_output, args=(process1.stderr, q1err))
