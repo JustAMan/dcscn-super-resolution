@@ -16,6 +16,7 @@ from threading import Thread
 from queue import Queue, Empty
 
 ON_POSIX = 'posix' in sys.builtin_module_names
+logger = logging.getLogger(__name__)
 
 
 def enqueue_output(out, queue):
@@ -24,12 +25,8 @@ def enqueue_output(out, queue):
     out.close()
 
 
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
-
-
 def get_video_props(filename):
-    logger.info('Getting video size for %s' % filename)
+    logger.info('Getting video properties from %s' % filename)
     probe = ffmpeg.probe(filename)
     video_info = next(s for s in probe['streams'] if s['codec_type'] == 'video')
     width = int(video_info['width'])
@@ -41,7 +38,7 @@ def get_video_props(filename):
 
 
 def start_ffmpeg_process1(in_filename):
-    logger.info('Starting ffmpeg process for input file %s' % in_filename)
+    logger.info('Starting ffmpeg for source file %s' % in_filename)
     args = (
         ffmpeg
         .input(in_filename)
@@ -53,25 +50,28 @@ def start_ffmpeg_process1(in_filename):
 
 def start_ffmpeg_process2(in_filename, out_filename, width, height, fps, crf=20):
 
-    logger.info('Starting ffmpeg process for output file %s' % out_filename)
+    logger.info('Starting ffmpeg for target file %s' % out_filename)
     args = ['ffmpeg',
             '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', '%sx%s' % (width, height), '-r', str(fps), '-i', 'pipe:',
             '-i', in_filename,
             '-map', '0:V', '-map', '1', '-map', '-1:V',
-            '-codec', 'copy', '-vcodec', 'libx265', '-pix_fmt', 'yuv420p', '-crf', str(crf), '-preset', 'slower',
+            '-codec', 'copy', '-pix_fmt', 'yuv420p', '-crf', str(crf), '-preset', 'slower', '-vcodec', 'libx265',
             '-map_chapters', '1',
             '-map_metadata', '1',   # TODO Check if we need this
             '-y', out_filename]
-    #args = (
-    #    ffmpeg
-    #    .input('pipe:', format='rawvideo', pix_fmt='rgb24', s='{}x{}'.format(width, height), r=fps)
-    #    .input(in_filename)
-    #    .output(out_filename, pix_fmt='yuv420p', vcodec='libx265', crf=crf, preset='slower')
-    #    .overwrite_output()
-    #    .compile()
-    #)
 
-    return subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=1, close_fds=ON_POSIX)
+    # args2 = (
+    #     ffmpeg
+    #     .input('pipe:', format='rawvideo', pix_fmt='rgb24', s='{}x{}'.format(width, height), r=fps)
+    #     .output(out_filename, pix_fmt='yuv420p', vcodec='libx265', crf=crf, preset='slower')
+    #     .overwrite_output()
+    #     .compile()
+    # )
+
+    return subprocess.Popen(args,
+                            stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, bufsize=1, close_fds=ON_POSIX)
 
 
 def read_frame(process1, width, height):
@@ -101,34 +101,73 @@ def write_frame(process2, frame):
     )
 
 
+def read_all_from_queue(queue: Queue, log_lines, prefix: str):
+    try:
+        while True:
+            line = queue.get_nowait()  # or q.get(timeout=.1)
+            s = line.decode(sys.stdin.encoding).rstrip()
+            s = "%s %s" % (prefix, s)
+            log_lines.append(s)
+            logger.debug(s)
+            # Do something with the output
+    except Empty:
+        pass  # no output yet
+
+
+class FFMPEGProcessCrashException(Exception):
+    pass
+
+
 def run(in_filename, out_filename, process_frame):
     width, height, fps, duration = get_video_props(in_filename)
 
-    rwidth = width
-    if int(FLAGS.pre_width) != 0:
-        rwidth = int(FLAGS.pre_width)
+    twidth = int(FLAGS.target_width)
+    theight = int(FLAGS.target_height)
+    if twidth == 0 and theight == 0:
+        twidth = width * int(FLAGS.scale)
+        theight = height * int(FLAGS.scale)
+    elif twidth == 0:
+        twidth = width * theight / height
+    elif theight == 0:
+        theight = height * twidth / width
 
-    rheight = height
-    if int(FLAGS.pre_height) != 0:
-        rheight = int(FLAGS.pre_height)
+    rwidth = int(twidth / FLAGS.scale)
+    rheight = int(theight / FLAGS.scale)
 
-    uwidth = rwidth * FLAGS.scale
-    uheight = rheight * FLAGS.scale
+    uwidth = int(twidth)
+    uheight = int(theight)
+
+    # Size should be multiple of 2 (h265 needs that)
+    if uwidth % 2 == 1:
+        uwidth += 1
+    if uheight % 2 == 1:
+        uheight += 1
+
+    logger.info('')
+    logger.info('PLAN: ')
+    logger.info('* Read frames from %s' % in_filename)
+    logger.info('* Prescale frames from %dx%d to %dx%d with bicubic' % (width, height, rwidth, rheight))
+    logger.info('* Upscale frames from %dx%d to %dx%d with DCSCN' % (rwidth, rheight, uwidth, uheight))
+    logger.info('* Write frames to %s' % out_filename)
+    logger.info('')
 
     process1 = start_ffmpeg_process1(in_filename)
     process2 = start_ffmpeg_process2(in_filename, out_filename, uwidth, uheight, fps)
 
     q1err = Queue()
+    log1err = []
     p1err_t = Thread(target=enqueue_output, args=(process1.stderr, q1err))
     p1err_t.daemon = True  # thread dies with the program
     p1err_t.start()
 
     q2out = Queue()
+    log2out = []
     p2out_t = Thread(target=enqueue_output, args=(process2.stdout, q2out))
     p2out_t.daemon = True  # thread dies with the program
     p2out_t.start()
 
     q2err = Queue()
+    log2err = []
     p2err_t = Thread(target=enqueue_output, args=(process2.stderr, q2err))
     p2err_t.daemon = True  # thread dies with the program
     p2err_t.start()
@@ -136,79 +175,70 @@ def run(in_filename, out_filename, process_frame):
     frame_num = 0
     moment = time.time()
 
-    logger.info('')
-    logger.info('PLAN: ')
-    logger.info('* Prescale frames from %dx%d to %dx%d with bicubic' % (width, height, rwidth, rheight))
-    logger.info('* Upscale frames from %dx%d to %dx%d with DCSCN' % (rwidth, rheight, uwidth, uheight))
-    logger.info('')
+    try:
+        while True:
+            try:
+                in_frame = read_frame(process1, width, height)
+                if in_frame is None:
+                    logger.info('End of input stream')
+                    break
+                in_frame = cv2.resize(in_frame, (rwidth, rheight))
+                out_frame = process_frame(in_frame)
+                write_frame(process2, out_frame)
 
-    while True:
-        in_frame = read_frame(process1, width, height)
-        if in_frame is None:
-            logger.info('End of input stream')
-            break
+                new_moment = time.time()
 
-        in_frame = cv2.resize(in_frame, (rwidth, rheight))
+                tm = float(frame_num) / fps
+                hdrd = ((tm % 1.0) * 100) % 100
 
-        out_frame = process_frame(in_frame)
-        write_frame(process2, out_frame)
+                secs = int(tm) % 60
+                tm /= 60
+                mins = tm % 60
+                tm /= 60
+                hrs = tm
 
-        try:
-            while True:
-                line = q1err.get_nowait()  # or q.get(timeout=.1)
-                s = line.decode('utf-8')
-                # Do something with the output
-        except Empty:
-            pass  # no output yet
+                frame_num += 1
+                total_frames = int(duration * fps)
 
-        try:
-            while True:
-                line = q2out.get_nowait()  # or q.get(timeout=.1)
-                s = line.decode('utf-8')
-                # Do something with the output
-        except Empty:
-            pass  # no output yet
+                logger.info("Frame %d of %d (%3d%%),  Video time: %d:%02d:%02d.%02d,  Encoding FPS: %.1f" % (
+                    frame_num,
+                    total_frames,
+                    float(frame_num) * 100 / total_frames,
+                    hrs, mins, secs, hdrd,
+                    1.0 / (new_moment - moment)
+                ))
+                moment = new_moment
+            except BrokenPipeError:
+                raise
+            finally:
+                read_all_from_queue(q1err, log1err, "in-ffmpeg-stderr>")
+                read_all_from_queue(q2out, log2out, "out-ffmpeg-stdout>")
+                read_all_from_queue(q2err, log2err, "out-ffmpeg-stderr>")
 
-        try:
-            while True:
-                line = q2err.get_nowait()  # or q.get(timeout=.1)
-                s = line.decode('utf-8')
-                # Do something with the output
-        except Empty:
-            pass  # no output yet
+        logger.info('Waiting for ffmpeg process for input file')
+        p1retcode = process1.wait()
+        read_all_from_queue(q1err, log1err, "in-ffmpeg-stderr>")
 
-        new_moment = time.time()
+        logger.info('Waiting for ffmpeg process for output file')
+        process2.stdin.close()
+        p2retcode = process2.wait()
+        read_all_from_queue(q2out, log2out, "out-ffmpeg-stdout>")
+        read_all_from_queue(q2err, log2err, "out-ffmpeg-stderr>")
+    except BrokenPipeError:
+        raise FFMPEGProcessCrashException(
+            {'message': 'Pipe between broken ffmpeg and the upscaler', 'outlog': log2out, 'errlog': log1err + log2err})
 
-        tm = float(frame_num) / fps
-        hdrd = ((tm % 1.0) * 100) % 100
+    if p1retcode != 0:
+        raise FFMPEGProcessCrashException(
+            {'message': 'Source ffmpeg process crashed with code %d' % p1retcode, 'outlog': [], 'errlog': log1err}
+        )
+    if p2retcode != 0:
+        raise FFMPEGProcessCrashException(
+            {'message': 'Target ffmpeg process crashed with code %d' % p2retcode, 'outlog': log2out, 'errlog': log2err}
+        )
 
-        secs = int(tm) % 60
-        tm /= 60
-        mins = tm % 60
-        tm /= 60
-        hrs = tm
-
-        frame_num += 1
-        total_frames = int(duration * fps)
-
-        logger.info("Frame %d of %d (%3d%%),  Time: %d:%02d:%02d.%02d,  FPS: %.1f" % (
-            frame_num,
-            total_frames,
-            float(frame_num) * 100 / total_frames,
-            hrs, mins, secs, hdrd,
-            1.0 / (new_moment - moment)
-        ))
-        moment = new_moment
-
-    logger.info('Waiting for ffmpeg process for input file')
-    process1.wait()
-
-    logger.info('Waiting for ffmpeg process for output file')
-    process2.stdin.close()
-    process2.wait()
-
-    logger.info('Done')
     return frame_num
+
 
 def parse_stdin(width, height):
     frame_size = width * height * 4
@@ -236,9 +266,9 @@ def pack_image_to_stdout(img):
 
 
 class Upscaler(DCSCN.SuperResolution):
-    def __init__(self, flags, pre_size=None, model_name=""):
+    def __init__(self, flags, target_size=None, model_name=""):
         super().__init__(flags, model_name)
-        self.pre_size = pre_size
+        self.target_size = target_size
 
     def upscale(self, org_image):
         assert len(org_image.shape) >= 3 and org_image.shape[2] == 3 and self.channels == 1
@@ -265,13 +295,20 @@ class Upscaler(DCSCN.SuperResolution):
 
 args.flags.DEFINE_string("in_file", "in.mkv", "Source video filename")
 args.flags.DEFINE_string("out_file", "out.mkv", "Target video filename")
-args.flags.DEFINE_string("pre_width", "0", "Prescale width")
-args.flags.DEFINE_string("pre_height", "0", "Prescale height")
+args.flags.DEFINE_string("target_width", "0", "Prescale width")
+args.flags.DEFINE_string("target_height", "0", "Prescale height")
+args.flags.DEFINE_boolean("debug", False, "Log DEBUG")
 FLAGS = args.get()
 
 
 def main(_):
-    model = Upscaler(FLAGS, pre_size=(int(FLAGS.pre_width), int(FLAGS.pre_height)), model_name=FLAGS.model_name)
+    # Setting logging level
+    level = logging.INFO
+    if FLAGS.debug:
+        level = logging.DEBUG
+    logging.basicConfig(level=level)
+
+    model = Upscaler(FLAGS, target_size=(int(FLAGS.target_width), int(FLAGS.target_height)), model_name=FLAGS.model_name)
     model.build_graph()
     model.build_optimizer()
     model.build_summary_saver()
@@ -279,8 +316,18 @@ def main(_):
     model.init_all_variables()
     model.load_model()
 
-    frame_num = run(FLAGS.in_file, FLAGS.out_file, model.upscale)
-    logger.info("Processed %d frames" % frame_num)
+    try:
+        frame_num = run(FLAGS.in_file, FLAGS.out_file, model.upscale)
+        logger.info("%d frames processed succesfully" % frame_num)
+        logger.info("Well done")
+    except FFMPEGProcessCrashException as e:
+        print("\nFatal error occured: %s\n" % e.args[0]['message'], file=sys.stderr)
+        if not FLAGS.debug:
+            print("Process log:")
+            for log_line in e.args[0]['errlog']:
+                print(log_line, file=sys.stderr)
+            for log_line in e.args[0]['outlog']:
+                print(log_line, file=sys.stderr)
 
 
 if __name__ == '__main__':
