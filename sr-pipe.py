@@ -43,6 +43,7 @@ def parse_stdin(width, height):
         img = cv2.cvtColor(arr.reshape(height, width, 4)[:, :, 1:4], cv2.COLOR_BGR2RGB)
         yield img
 
+
 ALPHA_BUF = None
 def pack_image_to_stdout(img):
     global ALPHA_BUF
@@ -53,6 +54,7 @@ def pack_image_to_stdout(img):
         ALPHA_BUF = np.ones((arr.shape[0], arr.shape[1], 4), dtype=np.uint8) * 255
     ALPHA_BUF[:, :, 1:4] = arr
     sys.stdout.buffer.write(ALPHA_BUF.tobytes())
+
 
 class Upscaler(DCSCN.SuperResolution):
     def upscale(self, org_image):

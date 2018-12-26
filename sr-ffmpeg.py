@@ -127,9 +127,9 @@ def run(in_filename, out_filename, process_frame):
         twidth = width * int(FLAGS.scale)
         theight = height * int(FLAGS.scale)
     elif twidth == 0:
-        twidth = width * theight / height
+        twidth = int(width * theight / height / 2) * 2
     elif theight == 0:
-        theight = height * twidth / width
+        theight = int(height * twidth / width / 2) * 2
 
     rwidth = int(twidth / FLAGS.scale)
     rheight = int(theight / FLAGS.scale)
@@ -138,10 +138,10 @@ def run(in_filename, out_filename, process_frame):
     uheight = int(theight)
 
     # Size should be multiple of 2 (h265 needs that)
-    if uwidth % 2 == 1:
-        uwidth += 1
-    if uheight % 2 == 1:
-        uheight += 1
+    #if uwidth % 2 == 1:
+    #    uwidth += 1
+    #if uheight % 2 == 1:
+    #    uheight += 1
 
     logger.info('')
     logger.info('PLAN: ')
