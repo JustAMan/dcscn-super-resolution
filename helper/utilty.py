@@ -13,7 +13,7 @@ from os import listdir
 
 import numpy as np
 import tensorflow as tf
-from PIL import Image
+#from PIL import Image
 from os.path import isfile, join
 #from scipy import misc
 
@@ -178,14 +178,14 @@ def resize_image_by_pil(image, scale, resampling_method="bicubic"):
     new_width = int(width * scale)
     new_height = int(height * scale)
 
-    if resampling_method == "bicubic":
-        method = Image.BICUBIC
-    elif resampling_method == "bilinear":
-        method = Image.BILINEAR
-    elif resampling_method == "nearest":
-        method = Image.NEAREST
-    else:
-        method = Image.LANCZOS
+    # if resampling_method == "bicubic":
+    #     method = Image.BICUBIC
+    # elif resampling_method == "bilinear":
+    #     method = Image.BILINEAR
+    # elif resampling_method == "nearest":
+    #     method = Image.NEAREST
+    # else:
+    #     method = Image.LANCZOS
 
     if len(image.shape) == 3 and image.shape[2] == 3:
         #image = Image.fromarray(image, "RGB")

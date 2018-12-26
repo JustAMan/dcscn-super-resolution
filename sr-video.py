@@ -2,18 +2,16 @@ import sys
 import time
 import ffmpeg
 import logging
-import os
 import subprocess
 import numpy as np
 import tensorflow as tf
 import DCSCN
 import cv2
-import re
 from helper import args
 from helper import utilty as util
-import select
 from threading import Thread
 from queue import Queue, Empty
+
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 logger = logging.getLogger(__name__)
@@ -108,7 +106,7 @@ def read_all_from_queue(queue: Queue, log_lines, prefix: str):
             s = line.decode(sys.stdin.encoding).rstrip()
             s = "%s %s" % (prefix, s)
             log_lines.append(s)
-            logger.debug(s)
+            logger.info(s)
             # Do something with the output
     except Empty:
         pass  # no output yet

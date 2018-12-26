@@ -11,7 +11,8 @@ import random
 import tempfile
 
 import numpy as np
-from scipy.ndimage.filters import gaussian_filter, median_filter, gaussian_filter1d
+#from scipy.ndimage.filters import gaussian_filter, median_filter, gaussian_filter1d
+import cv2
 
 from helper import utilty as util
 
@@ -57,10 +58,21 @@ class BlurryJpegifiedInputImageMaker(InputImageMaker):
         vblur_radius = random.randrange(0, self.vblur_max) / 100.
         qua = random.randrange(self.jpegify[0], self.jpegify[1])
 
-        if vblur_radius > 0:
-            input_image = gaussian_filter1d(input_image, sigma=vblur_radius, axis=0)
-        if hblur_radius > 0:
-            input_image = gaussian_filter1d(input_image, sigma=hblur_radius, axis=1)
+#        if vblur_radius > 0:
+#            input_image = gaussian_filter1d(input_image, sigma=vblur_radius, axis=0)
+#        if hblur_radius > 0:
+#            input_image = gaussian_filter1d(input_image, sigma=hblur_radius, axis=1)
+
+        kx = int((hblur_radius + 0.5) * 2)
+        if kx % 2 == 0:
+            kx += 1
+
+        ky = int((vblur_radius + 0.5) * 2)
+        if ky % 2 == 0:
+            ky += 1
+
+        cv2.GaussianBlur(src=input_image, ksize=(kx, ky), sigmaX=hblur_radius, dst=input_image, sigmaY=vblur_radius)
+
         if qua < 100:
             tmpname = tempfile.mktemp(suffix='.jpg')
             util.save_image(tmpname, input_image, qua, print_console=False)
