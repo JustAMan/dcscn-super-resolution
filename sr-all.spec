@@ -6,7 +6,7 @@ a_sr_train = Analysis(['sr-train.py'],
              binaries=[], 
              pathex=[], datas=[], hiddenimports=[], runtime_hooks=[],
              #hookspath=['myhooks'],
-             excludes=['FixTk', 'tcl', 'tk', '_tkinter', 'tkinter', 'Tkinter', 'PyQt5', 'matplotlib', 'PIL',  'pywt'],
+             excludes=['FixTk', 'tcl', 'tk', '_tkinter', 'tkinter', 'Tkinter', 'PyQt5', 'matplotlib', 'PIL',  'pywt', 'google-cloud-core', 'win32com', 'zmq'],
              win_no_prefer_redirects=False, win_private_assemblies=False, noarchive=False,
              cipher=block_cipher
              )
@@ -15,7 +15,7 @@ a_sr_image = Analysis(['sr-image.py'],
              binaries=[], 
              pathex=[], datas=[], hiddenimports=[], runtime_hooks=[],
              #hookspath=['myhooks'],
-             excludes=['FixTk', 'tcl', 'tk', '_tkinter', 'tkinter', 'Tkinter', 'PyQt5', 'matplotlib', 'PIL',  'pywt'],
+             excludes=['FixTk', 'tcl', 'tk', '_tkinter', 'tkinter', 'Tkinter', 'PyQt5', 'matplotlib', 'PIL',  'pywt', 'google-cloud-core', 'win32com', 'zmq'],
              win_no_prefer_redirects=False, win_private_assemblies=False, noarchive=False,
              cipher=block_cipher
              )
@@ -24,7 +24,7 @@ a_sr_video = Analysis(['sr-video.py'],
              binaries=[('ffmpeg/bin/*', '.')],
              pathex=[], datas=[], hiddenimports=[], runtime_hooks=[],
              #hookspath=['myhooks'],
-             excludes=['FixTk', 'tcl', 'tk', '_tkinter', 'tkinter', 'Tkinter', 'PyQt5', 'matplotlib', 'PIL',  'pywt'],
+             excludes=['FixTk', 'tcl', 'tk', '_tkinter', 'tkinter', 'Tkinter', 'PyQt5', 'matplotlib', 'PIL',  'pywt', 'google-cloud-core', 'win32com', 'zmq'],
              win_no_prefer_redirects=False, win_private_assemblies=False, noarchive=False,
              cipher=block_cipher
              )
