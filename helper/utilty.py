@@ -19,8 +19,14 @@ from os.path import isfile, join
 
 import cv2
 
-from skimage.measure import compare_psnr, compare_ssim
+#from skimage.measure import compare_psnr, compare_ssim
 
+def compare_psnr(img1, img2, data_range=255.0):
+    mse = np.mean( (img1 - img2) ** 2 )
+    if mse == 0:
+        return 100
+    PIXEL_MAX = data_range
+    return 20 * math.log10(PIXEL_MAX / math.sqrt(mse))
 
 class Timer:
     def __init__(self, timer_count=100):
@@ -489,8 +495,10 @@ def compute_psnr_and_ssim(image1, image2, border_size=0):
         image2 = image2[border_size:-border_size, border_size:-border_size, :]
 
     psnr = compare_psnr(image1, image2, data_range=255)
-    ssim = compare_ssim(image1, image2, win_size=11, gaussian_weights=True, multichannel=True, K1=0.01, K2=0.03,
-                        sigma=1.5, data_range=255)
+	
+	# TODO Return SSIM back
+    ssim = psnr #compare_ssim(image1, image2, win_size=11, gaussian_weights=True, multichannel=True, K1=0.01, K2=0.03,
+           #             sigma=1.5, data_range=255)
     return psnr, ssim
 
 
