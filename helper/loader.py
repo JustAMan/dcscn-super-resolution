@@ -31,12 +31,13 @@ class InputImageMaker:
 
 
 class BlurryJpegifiedInputImageMaker(InputImageMaker):
-    def __init__(self, hblur_max=70, vblur_max=70, jpegify=(40, 110), resampling_method='bicubic'):
+    def __init__(self, hblur_max=70, vblur_max=70, jpegify=(40, 110), patch_scale_max=1.0, resampling_method='bicubic'):
         InputImageMaker.__init__(self)
         self.hblur_max = hblur_max
         self.vblur_max = vblur_max
         self.jpegify = jpegify
         self.resampling_method = resampling_method
+        self.patch_scale_max = patch_scale_max
 
     def make_input_image(self, file_path, true_image, scale=1, print_console=True):
         if true_image is not None:
@@ -140,7 +141,11 @@ class DynamicDataSetsWithInput(DynamicDataSets):
         file_path = None
         while image is None:
             file_path = self.filenames[self.get_next_image_no()]
-            image = self.load_random_patch(file_path)
+            if self.image_maker.patch_scale_max > 1.0:
+                patch_scale_value = random.randrange(100, self.image_maker.patch_scale_max * 100) / 100.
+            else:
+                patch_scale_value = 1.
+            image = self.load_random_patch(file_path, patch_scale_value)
 
         input_image = self.image_maker.make_input_image(file_path, image, scale=self.scale,
                                                         print_console=False)
@@ -171,12 +176,13 @@ class DynamicDataSetsWithInput(DynamicDataSets):
 
         return input_image, input_bicubic_image, image
 
-    def load_random_patch(self, filename):
+    def load_random_patch(self, filename, patch_size=1.0):
 
         image = util.load_image(filename, print_console=False)
         height, width = image.shape[0:2]
 
-        load_batch_size = self.batch_image_size * self.scale
+        load_batch_size_target = self.batch_image_size * self.scale
+        load_batch_size = int(load_batch_size_target * patch_size)
 
         if height < load_batch_size or width < load_batch_size:
             print("Error: %s should have more than %d x %d size." % (filename, load_batch_size, load_batch_size))
@@ -194,6 +200,10 @@ class DynamicDataSetsWithInput(DynamicDataSets):
         x -= x % self.scale
         y -= y % self.scale
         image = image[y:y + load_batch_size, x:x + load_batch_size, :]
+
+        if load_batch_size != load_batch_size_target:
+            image = cv2.resize(image, (load_batch_size_target, load_batch_size_target), image)
+
         image = build_input_image(image)
 
         return image

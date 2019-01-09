@@ -72,6 +72,7 @@ flags.DEFINE_integer("vblur_max", 50, "Vertical blur of input image for training
 flags.DEFINE_integer("jpegify_min", 60, "Minimal quality of JPEG encoding of the input image for training (0..100)")
 flags.DEFINE_integer("jpegify_max", 120, "Maximal quality of JPEG encoding of the input image for training "
                                          "(can be greater than 100 that means no JPEG encoding with some probability)")
+flags.DEFINE_float("patch_scale_max", 1.5, "Maximum scale of a training patch additional to the scale factor")
 
 flags.DEFINE_float("max_value", 255, "For normalize image pixel value")
 flags.DEFINE_integer("channels", 1, "Number of image channels used. Now it should be 1. using only Y from YCbCr.")

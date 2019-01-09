@@ -65,9 +65,9 @@ class SuperResolution(tf_graph.TensorflowGraph):
         self.lr_decay_epoch = flags.lr_decay_epoch
 
         # Dataset or Others
-        self.image_maker = loader.BlurryJpegifiedInputImageMaker(flags.hblur_max, flags.vblur_max, jpegify=(flags.jpegify_min, flags.jpegify_max))
-        print("Created BlurryJpegifiedInputImageMaker with hblur_max=%s, vblur_max=%s, jpegify=(%s, %s)" %
-              (flags.hblur_max, flags.vblur_max, flags.jpegify_min, flags.jpegify_max))
+        self.image_maker = loader.BlurryJpegifiedInputImageMaker(flags.hblur_max, flags.vblur_max,
+                                                                 jpegify=(flags.jpegify_min, flags.jpegify_max),
+                                                                 patch_scale_max=flags.patch_scale_max)
         self.training_images = int(math.ceil(flags.training_images / flags.batch_num) * flags.batch_num)
         self.train = None
         self.test = None
@@ -145,6 +145,9 @@ class SuperResolution(tf_graph.TensorflowGraph):
         Opens image directory as a datasets. Images will be loaded when build_input_batch() is called.
         """
 
+        logging.info("Loading dynamic dataset with hblur_max=%s, vblur_max=%s, jpegify=(%s, %s), patch_scale_max=%s" %
+              (self.image_maker.hblur_max, self.image_maker.vblur_max,
+               self.image_maker.jpegify[0], self.image_maker.jpegify[1], self.image_maker.patch_scale_max))
         self.train = loader.DynamicDataSetsWithInput(self.scale, batch_image_size, channels=self.channels,
                                             resampling_method=self.resampling_method, image_maker=self.image_maker)
         self.train.set_data_dir(data_dir)
@@ -585,27 +588,6 @@ class SuperResolution(tf_graph.TensorflowGraph):
 
     def do_for_evaluate(self, file_path, print_console=False):
         return self.do_for_evaluate_with_output(file_path, None, print_console)
-
-    # def evaluate_bicubic(self, file_path, print_console=False):
-    #     true_image = util.set_image_alignment(util.load_image(file_path, print_console=False), self.scale)
-    #
-    #     if true_image.shape[2] == 3 and self.channels == 1:
-    #         input_image = loader.build_input_image(true_image, scale=self.scale,
-    #                                                alignment=self.scale, convert_ycbcr=True)
-    #         true_image = util.convert_rgb_to_y(true_image)
-    #     elif true_image.shape[2] == 1 and self.channels == 1:
-    #         input_image = loader.build_input_image(true_image, scale=self.scale,
-    #                                                alignment=self.scale)
-    #     else:
-    #         return None, None
-    #
-    #     input_bicubic_image = util.resize_image_by_pil(input_image, self.scale, resampling_method=self.resampling_method)
-    #     psnr, ssim = util.compute_psnr_and_ssim(true_image, input_bicubic_image, border_size=self.psnr_calc_border_size)
-    #
-    #     if print_console:
-    #         print("PSNR:%f, SSIM:%f" % (psnr, ssim))
-    #
-    #     return psnr, ssim
 
     def init_train_step(self):
         self.lr = self.initial_lr
