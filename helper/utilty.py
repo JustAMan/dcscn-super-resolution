@@ -132,31 +132,47 @@ def save_image(filename, image, qua=95, print_console=False):
         print("Saved [%s]" % filename)
 
 def convert_rgb_to_y(image):
+    if image.dtype == np.uint8:
+        image = image.astype(np.float32)
+    image /= 255.0
+
     ycbcr = cv2.cvtColor(image, cv2.COLOR_RGB2YCR_CB)
     only_y, only_Cr, only_Cb = cv2.split(ycbcr)
     only_y = np.atleast_3d(only_y)
-    return only_y.astype('float32')
+    only_y *= 255.0
+
+    return only_y
 
 
 def convert_ycbcr_to_y_cbcr(ycbcr):
+    assert ycbcr.dtype == np.float32
     only_y, only_Cr, only_Cb = cv2.split(ycbcr)
     only_y = np.atleast_3d(only_y)
 
-    return only_y.astype('float32'), (only_Cb.astype('float32'), only_Cr.astype('float32'))
+    return only_y.astype(np.float32), (only_Cb.astype(np.float32), only_Cr.astype(np.float32))
     
 
 def convert_rgb_to_ycbcr(image):
+    if image.dtype == np.uint8:
+        image = image.astype(np.float32)
+    image /= 255.0
     ycbcr = cv2.cvtColor(image, cv2.COLOR_RGB2YCR_CB)
-    return ycbcr.astype('float32')
+    ycbcr *= 255.0
+    return ycbcr
 
 
 def convert_ycbcr_to_rgb(ycbcr_image):
-    image = cv2.cvtColor(ycbcr_image.clip(0, 255).astype(np.uint8), cv2.COLOR_YCR_CB2RGB)
-    return image
+    if ycbcr_image.dtype == np.uint8:
+        ycbcr_image = ycbcr_image.astype(np.float32)
+    ycbcr_image /= 255.0
+    image = cv2.cvtColor(ycbcr_image, cv2.COLOR_YCR_CB2RGB)
+    image *= 255.0
+    return image.clip(0, 255).astype(np.uint8)
 
 
 def convert_y_and_cbcr_to_rgb(y_image, cbcr_image):
     only_Cb, only_Cr = cbcr_image
+    assert y_image.dtype == only_Cb.dtype == only_Cr.dtype == np.float32
     ycbcr_image = cv2.merge((y_image, only_Cr, only_Cb))
     return convert_ycbcr_to_rgb(ycbcr_image)
 
